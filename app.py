@@ -36,6 +36,24 @@ DESCRIPTOR_LABELS = {
 }
 
 
+def _aggregate_usage(usage: list[dict]) -> list[dict]:
+    """Aggregate 5-min usage intervals into daily totals by channel type."""
+    from collections import defaultdict
+    days: dict[str, dict] = defaultdict(lambda: {"consume_kwh": 0.0, "feedin_kwh": 0.0, "cost": 0.0})
+    for u in usage:
+        d = u.get("date", "")
+        if not d:
+            continue
+        ch = u.get("channelType", "")
+        kwh = u.get("kwh", 0) or 0
+        if ch == "general":
+            days[d]["consume_kwh"] += kwh
+            days[d]["cost"] += u.get("cost", 0) or 0
+        elif ch == "feedIn":
+            days[d]["feedin_kwh"] += abs(kwh)
+    return [{"date": d, **v} for d, v in sorted(days.items())]
+
+
 def _split_intervals(intervals: list[dict]):
     past, current, forecast = [], None, []
     for iv in intervals:
@@ -120,6 +138,16 @@ def dashboard():
         except Exception:
             pass
 
+        # 7-day usage history for consumption chart
+        try:
+            end   = date.today()
+            start = end - timedelta(days=6)
+            usage = client.get_usage(site_id, start, end)
+        except Exception:
+            usage = []
+
+        usage_daily = _aggregate_usage(usage)
+
         return render_template(
             "dashboard.html",
             current=current,
@@ -135,6 +163,7 @@ def dashboard():
             last_poll=last_poll,
             solar=solar,
             foxess=foxess,
+            usage_daily=usage_daily,
             signal_configured=is_configured(),
             descriptor_colors=DESCRIPTOR_COLORS,
             descriptor_labels=DESCRIPTOR_LABELS,

@@ -346,7 +346,79 @@
     </div>
   </div>
 
-  {# ── Row 5: Price forecast chart ── #}
+  {# ── Row 5: Power flow + 7-day usage ── #}
+  <div class="row g-3 mb-3">
+
+    {# Live power flow #}
+    <div class="col-12 col-md-5">
+      <div class="card p-3 h-100">
+        <div class="card-title mb-3">Power Flow — right now</div>
+        {% if foxess %}
+          {% set pv    = foxess.pvPower or 0 %}
+          {% set bat_c = foxess.batChargePower or 0 %}
+          {% set bat_d = foxess.batDischargePower or 0 %}
+          {% set load  = foxess.loadsPower or 0 %}
+          {% set grid_in  = foxess.gridConsumptionPower or 0 %}
+          {% set grid_out = foxess.feedinPower or 0 %}
+          <div class="row text-center g-2">
+            <div class="col-4">
+              <div class="p-2 rounded" style="background:#1e3a1e">
+                <div class="small text-secondary">Solar</div>
+                <div class="fw-bold" style="color:#ffeb3b">{{ pv|round(2) }} kW</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="p-2 rounded" style="background:#1a2a3a">
+                <div class="small text-secondary">Battery</div>
+                {% if bat_c > 0.05 %}
+                  <div class="fw-bold text-success">+{{ bat_c|round(2) }} kW</div>
+                  <div class="small text-secondary">charging</div>
+                {% elif bat_d > 0.05 %}
+                  <div class="fw-bold text-warning">-{{ bat_d|round(2) }} kW</div>
+                  <div class="small text-secondary">discharging</div>
+                {% else %}
+                  <div class="fw-bold text-secondary">idle</div>
+                {% endif %}
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="p-2 rounded" style="background:#2a1a1a">
+                <div class="small text-secondary">Grid</div>
+                {% if grid_out > 0.05 %}
+                  <div class="fw-bold text-success">↑ {{ grid_out|round(2) }} kW</div>
+                  <div class="small text-secondary">exporting</div>
+                {% elif grid_in > 0.05 %}
+                  <div class="fw-bold text-danger">↓ {{ grid_in|round(2) }} kW</div>
+                  <div class="small text-secondary">importing</div>
+                {% else %}
+                  <div class="fw-bold text-secondary">idle</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="text-center mt-3">
+            <div class="p-2 rounded" style="background:#1a1a2e; border:1px solid #0f3460">
+              <div class="small text-secondary">House Load</div>
+              <div class="fw-bold text-light" style="font-size:1.4rem">{{ load|round(2) }} kW</div>
+            </div>
+          </div>
+        {% else %}
+          <div class="text-secondary small">FOX ESS data unavailable</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# 7-day usage chart #}
+    <div class="col-12 col-md-7">
+      <div class="card p-3 h-100">
+        <div class="card-title mb-2">7-day Usage</div>
+        <div id="usageChart" style="height:220px"></div>
+      </div>
+    </div>
+
+  </div>
+
+  {# ── Price forecast chart ── #}
   <div class="row g-3 mb-3">
     <div class="col-12">
       <div class="card p-3">
@@ -450,6 +522,30 @@ const rColors = rValues.map(v => {
   if (v >= 20) return '#ff6d00';
   return '#d50000';
 });
+
+// ── 7-day usage chart ────────────────────────────────────────────────────────
+const usageDaily = {{ usage_daily | tojson }};
+if (document.getElementById('usageChart') && usageDaily.length) {
+  const uDates   = usageDaily.map(d => d.date);
+  const uConsume = usageDaily.map(d => +(d.consume_kwh).toFixed(2));
+  const uFeedin  = usageDaily.map(d => +(d.feedin_kwh).toFixed(2));
+  const uCost    = usageDaily.map(d => +(d.cost).toFixed(2));
+
+  Plotly.newPlot('usageChart', [
+    { x: uDates, y: uConsume, type: 'bar', name: 'Consumed kWh',
+      marker: { color: '#ff6d00', opacity: 0.85 } },
+    { x: uDates, y: uFeedin,  type: 'bar', name: 'Exported kWh',
+      marker: { color: '#00c853', opacity: 0.85 } },
+  ], {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font:    { color: '#e0e0e0', size: 11 },
+    xaxis:   { gridcolor: '#1e3a5f' },
+    yaxis:   { gridcolor: '#1e3a5f', title: 'kWh' },
+    barmode: 'group',
+    margin:  { t: 10, r: 10, b: 40, l: 50 },
+    legend:  { orientation: 'h', y: 1.15 },
+  }, { responsive: true });
+}
 
 Plotly.newPlot('renewablesChart', [{
   x: rTimes, y: rValues,
