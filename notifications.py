@@ -1,37 +1,67 @@
 """
-Signal notifications via CallMeBot.
+Push notifications via ntfy.sh (primary) with Signal/CallMeBot as optional fallback.
 
-Setup:
-  1. Add +34 644 52 74 88 to your Signal contacts
-  2. Send them: "I allow callmebot to send me messages"
-  3. They reply with your apikey
-  4. Set SIGNAL_PHONE and SIGNAL_CALLMEBOT_APIKEY in .env
+ntfy setup:
+  1. Install the ntfy app on your phone (Android/iOS)
+  2. Subscribe to your topic (e.g. amber-bill8)
+  3. Set NTFY_TOPIC=amber-bill8 in .env
+
+Signal setup (optional, for future use):
+  1. Add +34 644 52 74 88 to Signal contacts
+  2. Send "I allow callmebot to send me messages"
+  3. Set SIGNAL_PHONE and SIGNAL_CALLMEBOT_APIKEY in .env
 """
 import os
 import logging
-import urllib.parse
 import requests
 
 log = logging.getLogger(__name__)
 
-CALLMEBOT_URL = "https://signal.callmebot.com/signal/send.php"
+NTFY_URL = "https://ntfy.sh"
 
 
-def send_signal(message: str) -> bool:
-    """Send a Signal message via CallMeBot. Returns True on success."""
-    phone  = os.environ.get("SIGNAL_PHONE", "").strip()
-    apikey = os.environ.get("SIGNAL_CALLMEBOT_APIKEY", "").strip()
+def send_notification(message: str, title: str = "Amber", priority: str = "default") -> bool:
+    """Send via ntfy (primary). Returns True on success."""
+    topic = os.environ.get("NTFY_TOPIC", "").strip()
+    if topic:
+        return _send_ntfy(topic, title, message, priority)
 
-    if not phone or not apikey:
-        log.warning("Signal not configured (SIGNAL_PHONE / SIGNAL_CALLMEBOT_APIKEY not set)")
+    # Fallback to Signal if ntfy not configured
+    return _send_signal(message)
+
+
+def _send_ntfy(topic: str, title: str, message: str, priority: str = "default") -> bool:
+    try:
+        r = requests.post(
+            f"{NTFY_URL}/{topic}",
+            data=message.encode("utf-8"),
+            headers={
+                "Title":    title,
+                "Priority": priority,
+                "Tags":     "zap",
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        log.info("ntfy sent: %s — %s", title, message[:60])
+        return True
+    except Exception as e:
+        log.error("ntfy send failed: %s", e)
         return False
 
+
+def _send_signal(message: str) -> bool:
+    phone  = os.environ.get("SIGNAL_PHONE", "").strip()
+    apikey = os.environ.get("SIGNAL_CALLMEBOT_APIKEY", "").strip()
+    if not phone or not apikey:
+        log.warning("No notification method configured (set NTFY_TOPIC or SIGNAL_PHONE+SIGNAL_CALLMEBOT_APIKEY)")
+        return False
     try:
-        r = requests.get(CALLMEBOT_URL, params={
-            "phone":  phone,
-            "apikey": apikey,
-            "text":   message,
-        }, timeout=10)
+        r = requests.get(
+            "https://signal.callmebot.com/signal/send.php",
+            params={"phone": phone, "apikey": apikey, "text": message},
+            timeout=10,
+        )
         r.raise_for_status()
         log.info("Signal sent: %s", message[:60])
         return True
@@ -41,4 +71,13 @@ def send_signal(message: str) -> bool:
 
 
 def is_configured() -> bool:
-    return bool(os.environ.get("SIGNAL_PHONE") and os.environ.get("SIGNAL_CALLMEBOT_APIKEY"))
+    return bool(os.environ.get("NTFY_TOPIC") or
+                (os.environ.get("SIGNAL_PHONE") and os.environ.get("SIGNAL_CALLMEBOT_APIKEY")))
+
+
+def get_method() -> str:
+    if os.environ.get("NTFY_TOPIC"):
+        return "ntfy"
+    if os.environ.get("SIGNAL_PHONE") and os.environ.get("SIGNAL_CALLMEBOT_APIKEY"):
+        return "signal"
+    return "none"

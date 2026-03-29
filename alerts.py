@@ -8,7 +8,7 @@ import logging
 import os
 from datetime import datetime, date
 
-from notifications import send_signal
+from notifications import send_notification
 
 log = logging.getLogger(__name__)
 
@@ -69,11 +69,11 @@ def check_and_alert(current: dict, feedin_current: dict | None, renewables_curre
         if spike_status in ("spike", "potential") and prev_spike not in ("spike", "potential"):
             label = "PRICE SPIKE" if spike_status == "spike" else "Potential spike"
             msg = f"⚡ Amber Alert: {label}\nCurrent price: {price:.1f}¢/kWh\nStop charging — consider exporting if battery allows."
-            if send_signal(msg):
+            if send_notification(msg, title="Amber Alert", priority="high"):
                 sent.append(msg)
         elif spike_status == "none" and prev_spike in ("spike", "potential"):
             msg = f"✅ Amber: Spike has cleared\nPrice back to {price:.1f}¢/kWh ({descriptor})"
-            if send_signal(msg):
+            if send_notification(msg, title="Amber Alert", priority="high"):
                 sent.append(msg)
         state["spike_status"] = spike_status
 
@@ -86,7 +86,7 @@ def check_and_alert(current: dict, feedin_current: dict | None, renewables_curre
 
         if is_cheap and not was_cheap:
             msg = f"💚 Amber: Great time to charge!\nPrice: {price:.1f}¢/kWh ({descriptor})\nRenewables: {renewables_pct:.0f}%"
-            if send_signal(msg):
+            if send_notification(msg, title="Amber Alert", priority="high"):
                 sent.append(msg)
         state["was_cheap"] = is_cheap
 
@@ -98,7 +98,7 @@ def check_and_alert(current: dict, feedin_current: dict | None, renewables_curre
 
         if is_green and not was_green:
             msg = f"🌱 Amber: High renewables — {renewables_pct:.0f}% green\nPrice: {price:.1f}¢/kWh\nGood time to charge from the grid."
-            if send_signal(msg):
+            if send_notification(msg, title="Amber Alert", priority="high"):
                 sent.append(msg)
         state["was_green"] = is_green
 
@@ -127,4 +127,4 @@ def send_daily_summary(current: dict, stats_24h: dict, analysis: dict) -> bool:
     if ba.get("saving_dollars", 0) > 0:
         lines.append(f"Potential saving today: ${ba['saving_dollars'] + ea.get('saving_dollars', 0):.2f}")
 
-    return send_signal("\n".join(lines))
+    return send_notification("\n".join(lines), title="Amber Daily Summary")

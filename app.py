@@ -6,7 +6,7 @@ from flask import Flask, render_template, jsonify, request, redirect, url_for, f
 from dotenv import load_dotenv
 from amber_client import get_client, get_site_id
 from optimizer import analyse, HardwareConfig
-from notifications import send_signal, is_configured
+from notifications import send_notification, is_configured, get_method
 from alerts import _load_state, _save_state
 
 load_dotenv()
@@ -123,15 +123,17 @@ def alerts_page():
     if request.method == "POST":
         action = request.form.get("action")
         if action == "test":
-            ok = send_signal("🔔 Amber test notification — everything is working!")
-            msg = ("Test notification sent via Signal." if ok
-                   else "Signal not configured — set SIGNAL_PHONE and SIGNAL_CALLMEBOT_APIKEY in .env")
+            ok = send_notification("🔔 Amber test notification — everything is working!", title="Amber Test")
+            msg = ("Test notification sent." if ok
+                   else "Notification not configured — set NTFY_TOPIC in .env and restart.")
         elif action == "save_thresholds":
             # Write threshold overrides into alert state for display; real values go in .env
             pass  # thresholds are .env-based for now
 
     alert_config = {
         "signal_configured": is_configured(),
+        "notify_method": get_method(),
+        "ntfy_topic":    os.environ.get("NTFY_TOPIC", ""),
         "spike":        os.environ.get("ALERT_SPIKE",        "true").lower() != "false",
         "cheap":        os.environ.get("ALERT_CHEAP",        "true").lower() != "false",
         "cheap_desc":   os.environ.get("ALERT_CHEAP_DESCRIPTOR", "extremelyLow"),

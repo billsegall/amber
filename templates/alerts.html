@@ -30,29 +30,26 @@
   </div>
   {% endif %}
 
-  {# ── Signal setup status ── #}
+  {# ── Notification status ── #}
   <div class="card mb-4 p-3">
-    <div class="card-title mb-2">Signal via CallMeBot</div>
-    {% if config.signal_configured %}
-      <div class="alert alert-success py-1 mb-3 small">✓ Signal is configured</div>
+    <div class="card-title mb-2">Notifications</div>
+    {% if config.notify_method == "ntfy" %}
+      <div class="alert alert-success py-1 mb-3 small">
+        ✓ ntfy.sh — topic: <strong>{{ config.ntfy_topic }}</strong>
+      </div>
+      <p class="text-secondary small mb-3">
+        Install the <strong>ntfy</strong> app and subscribe to <code>{{ config.ntfy_topic }}</code>.
+      </p>
+    {% elif config.notify_method == "signal" %}
+      <div class="alert alert-success py-1 mb-3 small">✓ Signal via CallMeBot</div>
     {% else %}
       <div class="alert alert-warning py-2 mb-3 small">
-        <strong>Signal not yet configured.</strong> To set up:
-        <ol class="mb-0 mt-1">
-          <li>Add <strong>+34 644 52 74 88</strong> to your Signal contacts</li>
-          <li>Send them: <code>I allow callmebot to send me messages</code></li>
-          <li>They'll reply with your API key</li>
-          <li>Add to <code>.env</code>:<br>
-            <code>SIGNAL_PHONE=+61xxxxxxxxx</code><br>
-            <code>SIGNAL_CALLMEBOT_APIKEY=xxxxxx</code>
-          </li>
-          <li>Restart the app</li>
-        </ol>
+        <strong>Not configured.</strong> Add <code>NTFY_TOPIC=your-topic</code> to <code>.env</code> and restart.
       </div>
     {% endif %}
     <form method="POST">
       <input type="hidden" name="action" value="test">
-      <button type="submit" class="btn btn-sm btn-outline-info" {% if not config.signal_configured %}disabled{% endif %}>
+      <button type="submit" class="btn btn-sm btn-outline-info" {% if config.notify_method == "none" %}disabled{% endif %}>
         Send test notification
       </button>
     </form>
