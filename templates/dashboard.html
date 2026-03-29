@@ -108,6 +108,30 @@
       </div>
     </div>
 
+    {# Solar / Fronius #}
+    <div class="col-6 col-md-2">
+      <div class="card h-100 p-3">
+        <div class="card-title mb-2">Solar</div>
+        {% if solar and solar.p_pv_w is not none %}
+          <div class="stat-value" style="color:#ffeb3b">{{ (solar.p_pv_w / 1000)|round(1) }} <span class="price-unit">kW</span></div>
+          <div class="stat-label mt-1">generating</div>
+          {% if solar.e_day_wh %}
+            <div class="mt-2 text-secondary small">{{ (solar.e_day_wh / 1000)|round(1) }} kWh today</div>
+          {% endif %}
+          {% if solar.p_grid_w is not none %}
+            {% if solar.p_grid_w < 0 %}
+              <div class="text-success small mt-1">↑ {{ (solar.p_grid_w|abs / 1000)|round(2) }} kW export</div>
+            {% else %}
+              <div class="text-warning small mt-1">↓ {{ (solar.p_grid_w / 1000)|round(2) }} kW import</div>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          <div class="stat-value text-secondary" style="font-size:1.2rem">—</div>
+          <div class="stat-label mt-1">asleep / offline</div>
+        {% endif %}
+      </div>
+    </div>
+
     {# 24h price range preview #}
     <div class="col-12 col-md-4">
       <div class="card h-100 p-3">

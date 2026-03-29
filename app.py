@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from amber_client import get_client, get_site_id
 from optimizer import analyse, HardwareConfig
 from notifications import send_notification, is_configured, get_method
+from fronius_client import get_power_flow_safe
 from alerts import _load_state, _save_state
 
 load_dotenv()
@@ -92,6 +93,7 @@ def dashboard():
         )
 
         last_poll = state.get("last_poll", "")
+        solar = get_power_flow_safe()
 
         return render_template(
             "dashboard.html",
@@ -106,6 +108,7 @@ def dashboard():
             ev_soc=ev_soc,
             ev_target=ev_target,
             last_poll=last_poll,
+            solar=solar,
             signal_configured=is_configured(),
             descriptor_colors=DESCRIPTOR_COLORS,
             descriptor_labels=DESCRIPTOR_LABELS,
