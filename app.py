@@ -8,6 +8,7 @@ from amber_client import get_client, get_site_id
 from optimizer import analyse, HardwareConfig
 from notifications import send_notification, is_configured, get_method
 from fronius_client import get_power_flow_safe
+from foxess_client import get_client as get_foxess_client, get_device_sn
 from alerts import _load_state, _save_state
 
 load_dotenv()
@@ -68,9 +69,24 @@ def dashboard():
             state["ev_target"]   = ev_target
             _save_state(state)
         else:
-            battery_soc = float(state.get("battery_soc", DEFAULT_BATTERY_SOC))
-            ev_soc      = float(state.get("ev_soc",      DEFAULT_EV_SOC))
-            ev_target   = float(state.get("ev_target",   DEFAULT_EV_TARGET))
+            ev_soc    = float(state.get("ev_soc",    DEFAULT_EV_SOC))
+            ev_target = float(state.get("ev_target", DEFAULT_EV_TARGET))
+            # Battery SOC: prefer live FOX ESS reading
+            live_soc = None
+            try:
+                fc = get_foxess_client()
+                if fc:
+                    sn = get_device_sn()
+                    if sn:
+                        live_soc = fc.get_battery_soc(sn)
+            except Exception:
+                pass
+            if live_soc is not None:
+                battery_soc = live_soc
+                state["battery_soc"] = battery_soc
+                _save_state(state)
+            else:
+                battery_soc = float(state.get("battery_soc", DEFAULT_BATTERY_SOC))
 
         client  = get_client()
         site_id = get_site_id(client)
@@ -94,6 +110,15 @@ def dashboard():
 
         last_poll = state.get("last_poll", "")
         solar = get_power_flow_safe()
+        foxess = None
+        try:
+            fc = get_foxess_client()
+            if fc:
+                sn = get_device_sn()
+                if sn:
+                    foxess = fc.get_realtime(sn)
+        except Exception:
+            pass
 
         return render_template(
             "dashboard.html",
@@ -109,6 +134,7 @@ def dashboard():
             ev_target=ev_target,
             last_poll=last_poll,
             solar=solar,
+            foxess=foxess,
             signal_configured=is_configured(),
             descriptor_colors=DESCRIPTOR_COLORS,
             descriptor_labels=DESCRIPTOR_LABELS,

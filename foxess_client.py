@@ -1,0 +1,132 @@
+"""
+FOX ESS Cloud API client.
+Auth: private token + MD5 signature per request.
+Rate limit: 1440 calls/day per inverter.
+"""
+import hashlib
+import logging
+import os
+import time
+import requests
+
+log = logging.getLogger(__name__)
+
+BASE_URL = "https://www.foxesscloud.com"
+
+
+def _signature(token: str, path: str, timestamp: int) -> str:
+    # Raw string — \r\n is literal backslash-r-backslash-n, not CR+LF
+    raw = fr"{path}\r\n{token}\r\n{timestamp}"
+    return hashlib.md5(raw.encode("UTF-8")).hexdigest()
+
+
+def _headers(token: str, path: str) -> dict:
+    ts = int(time.time() * 1000)
+    return {
+        "Token":        token,
+        "Timestamp":    str(ts),
+        "Signature":    _signature(token, path, ts),
+        "Lang":         "en",
+        "Content-Type": "application/json",
+    }
+
+
+class FoxESSClient:
+    def __init__(self, token: str):
+        self.token = token
+
+    def _get(self, path: str, params: dict | None = None) -> dict | None:
+        try:
+            r = requests.get(
+                f"{BASE_URL}{path}",
+                params=params,
+                headers=_headers(self.token, path),
+                timeout=10,
+            )
+            r.raise_for_status()
+            body = r.json()
+            if body.get("errno", 0) != 0:
+                log.warning("FOX ESS error %s: %s", body.get("errno"), body.get("msg"))
+                return None
+            return body.get("result")
+        except Exception as e:
+            log.error("FOX ESS GET %s failed: %s", path, e)
+            return None
+
+    def _post(self, path: str, payload: dict) -> dict | None:
+        try:
+            r = requests.post(
+                f"{BASE_URL}{path}",
+                json=payload,
+                headers=_headers(self.token, path),
+                timeout=10,
+            )
+            r.raise_for_status()
+            body = r.json()
+            if body.get("errno", 0) != 0:
+                log.warning("FOX ESS error %s: %s", body.get("errno"), body.get("msg"))
+                return None
+            return body.get("result")
+        except Exception as e:
+            log.error("FOX ESS POST %s failed: %s", path, e)
+            return None
+
+    def get_devices(self) -> list[dict]:
+        """List all inverters on the account."""
+        result = self._post("/op/v0/device/list", {"pageSize": 10, "currentPage": 1})
+        if result is None:
+            return []
+        return result.get("data", [])
+
+    def get_battery_soc(self, sn: str) -> float | None:
+        """Return current battery SOC % or None."""
+        result = self._post("/op/v0/device/real/query", {
+            "sn": sn,
+            "variables": ["SoC"],
+        })
+        if not result:
+            return None
+        datas = result[0].get("datas", []) if result else []
+        for item in datas:
+            if item.get("variable") == "SoC":
+                return item.get("value")
+        return None
+
+    def get_realtime(self, sn: str) -> dict | None:
+        """Return a dict of key realtime variables."""
+        variables = ["SoC", "batChargePower", "batDischargePower",
+                     "generationPower", "loadsPower", "gridConsumptionPower",
+                     "feedinPower", "pvPower"]
+        result = self._post("/op/v0/device/real/query", {
+            "sn": sn,
+            "variables": variables,
+        })
+        if not result:
+            return None
+        # result is a list of device objects each with a "datas" list
+        datas = result[0].get("datas", []) if result else []
+        return {item["variable"]: item.get("value") for item in datas}
+
+
+def get_client() -> FoxESSClient | None:
+    token = os.environ.get("FOXESS_API_KEY", "").strip()
+    if not token:
+        return None
+    return FoxESSClient(token)
+
+
+def get_device_sn() -> str | None:
+    """Return SN from env or auto-discover from first device."""
+    sn = os.environ.get("FOXESS_DEVICE_SN", "").strip()
+    if sn:
+        return sn
+    client = get_client()
+    if not client:
+        return None
+    devices = client.get_devices()
+    if not devices:
+        log.warning("No FOX ESS devices found")
+        return None
+    sn = devices[0].get("deviceSN")
+    log.info("Auto-discovered FOX ESS device SN: %s", sn)
+    return sn
