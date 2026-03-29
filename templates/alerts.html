@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amber — Alerts</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background: #1a1a2e; color: #e0e0e0; }
+    .card { background: #16213e; border: 1px solid #0f3460; }
+    .card-title { color: #a0b4d0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .badge-on  { background: #00c853; color: #000; }
+    .badge-off { background: #455a64; color: #ccc; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark" style="background:#0f3460">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="/">⚡ Amber Monitor</a>
+    <span class="navbar-text">Alerts &amp; Notifications</span>
+  </div>
+</nav>
+
+<div class="container py-4" style="max-width:720px">
+
+  {% if msg %}
+  <div class="alert alert-info alert-dismissible fade show">{{ msg }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endif %}
+
+  {# ── Signal setup status ── #}
+  <div class="card mb-4 p-3">
+    <div class="card-title mb-2">Signal via CallMeBot</div>
+    {% if config.signal_configured %}
+      <div class="alert alert-success py-1 mb-3 small">✓ Signal is configured</div>
+    {% else %}
+      <div class="alert alert-warning py-2 mb-3 small">
+        <strong>Signal not yet configured.</strong> To set up:
+        <ol class="mb-0 mt-1">
+          <li>Add <strong>+34 644 52 74 88</strong> to your Signal contacts</li>
+          <li>Send them: <code>I allow callmebot to send me messages</code></li>
+          <li>They'll reply with your API key</li>
+          <li>Add to <code>.env</code>:<br>
+            <code>SIGNAL_PHONE=+61xxxxxxxxx</code><br>
+            <code>SIGNAL_CALLMEBOT_APIKEY=xxxxxx</code>
+          </li>
+          <li>Restart the app</li>
+        </ol>
+      </div>
+    {% endif %}
+    <form method="POST">
+      <input type="hidden" name="action" value="test">
+      <button type="submit" class="btn btn-sm btn-outline-info" {% if not config.signal_configured %}disabled{% endif %}>
+        Send test notification
+      </button>
+    </form>
+  </div>
+
+  {# ── Alert configuration ── #}
+  <div class="card mb-4 p-3">
+    <div class="card-title mb-3">Alert Configuration</div>
+    <p class="text-secondary small mb-3">
+      Thresholds are set via <code>.env</code>. Restart the app after changing them.
+    </p>
+    <table class="table table-dark table-sm table-borderless">
+      <tbody>
+        <tr>
+          <td>Price spike</td>
+          <td><span class="badge {% if config.spike %}badge-on{% else %}badge-off{% endif %}">
+            {{ "ON" if config.spike else "OFF" }}</span></td>
+          <td class="text-secondary small"><code>ALERT_SPIKE=true</code></td>
+        </tr>
+        <tr>
+          <td>Cheap window</td>
+          <td><span class="badge {% if config.cheap %}badge-on{% else %}badge-off{% endif %}">
+            {{ "ON" if config.cheap else "OFF" }}</span></td>
+          <td class="text-secondary small">
+            <code>ALERT_CHEAP=true</code><br>
+            <code>ALERT_CHEAP_DESCRIPTOR={{ config.cheap_desc }}</code>
+          </td>
+        </tr>
+        <tr>
+          <td>High renewables</td>
+          <td><span class="badge {% if config.renewables %}badge-on{% else %}badge-off{% endif %}">
+            {{ "ON" if config.renewables else "OFF" }}</span></td>
+          <td class="text-secondary small">
+            <code>ALERT_RENEWABLES=true</code><br>
+            <code>ALERT_RENEWABLES_PCT={{ config.renewables_pct|int }}</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Daily summary</td>
+          <td><span class="badge {% if config.daily_summary %}badge-on{% else %}badge-off{% endif %}">
+            {{ "ON" if config.daily_summary else "OFF" }}</span></td>
+          <td class="text-secondary small">
+            <code>ALERT_DAILY_SUMMARY=true</code><br>
+            <code>DAILY_SUMMARY_HOUR={{ config.daily_hour }}</code>
+          </td>
+        </tr>
+        <tr>
+          <td>Poll interval</td>
+          <td><strong>{{ config.poll_interval }}s</strong></td>
+          <td class="text-secondary small"><code>POLL_INTERVAL_SECONDS={{ config.poll_interval }}</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  {# ── Current state ── #}
+  <div class="card mb-4 p-3">
+    <div class="card-title mb-3">Current Alert State</div>
+    <table class="table table-dark table-sm table-borderless">
+      <tbody>
+        <tr>
+          <td>Last poll</td>
+          <td>{{ config.last_poll[:19]|replace("T"," ") if config.last_poll != "never" else "not yet" }}</td>
+        </tr>
+        <tr>
+          <td>Spike status</td>
+          <td>
+            {% if config.spike_status == "spike" %}
+              <span class="badge bg-danger">SPIKE</span>
+            {% elif config.spike_status == "potential" %}
+              <span class="badge bg-warning text-dark">potential</span>
+            {% else %}
+              <span class="badge badge-off">none</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td>In cheap window</td>
+          <td><span class="badge {% if config.was_cheap %}badge-on{% else %}badge-off{% endif %}">
+            {{ "yes" if config.was_cheap else "no" }}</span></td>
+        </tr>
+        <tr>
+          <td>High renewables</td>
+          <td><span class="badge {% if config.was_green %}badge-on{% else %}badge-off{% endif %}">
+            {{ "yes" if config.was_green else "no" }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <a href="/" class="btn btn-sm btn-outline-secondary">← Dashboard</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

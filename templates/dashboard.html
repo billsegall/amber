@@ -35,7 +35,14 @@
 <nav class="navbar navbar-dark" style="background:#0f3460">
   <div class="container-fluid">
     <span class="navbar-brand fw-bold">⚡ Amber Monitor</span>
-    <span class="text-secondary small" id="lastUpdated">QLD</span>
+    <div class="d-flex align-items-center gap-3">
+      {% if signal_configured %}
+        <span class="text-success small">🔔 Signal</span>
+      {% else %}
+        <a href="/alerts" class="text-warning small text-decoration-none">🔕 Set up alerts</a>
+      {% endif %}
+      <a href="/alerts" class="btn btn-sm btn-outline-secondary">Alerts</a>
+    </div>
   </div>
 </nav>
 

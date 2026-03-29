@@ -1,12 +1,16 @@
 import os
 import json
+import logging
 from datetime import date, timedelta
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
 from dotenv import load_dotenv
 from amber_client import get_client, get_site_id
 from optimizer import analyse, HardwareConfig
+from notifications import send_signal, is_configured
+from alerts import _load_state, _save_state
 
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
@@ -31,7 +35,6 @@ DESCRIPTOR_LABELS = {
 
 
 def _split_intervals(intervals: list[dict]):
-    """Split price intervals into past, current, and forecast."""
     past, current, forecast = [], None, []
     for iv in intervals:
         t = iv.get("type", "")
@@ -45,23 +48,30 @@ def _split_intervals(intervals: list[dict]):
 
 
 DEFAULT_HW = HardwareConfig()
-
-# Default SOC values used when none are submitted
 DEFAULT_BATTERY_SOC = 50.0
-DEFAULT_EV_SOC = 50.0
-DEFAULT_EV_TARGET = 85.0
+DEFAULT_EV_SOC      = 50.0
+DEFAULT_EV_TARGET   = 85.0
 
 
 @app.route("/", methods=["GET", "POST"])
 def dashboard():
     try:
-        # SOC inputs from form (POST) or defaults
-        from flask import request
-        battery_soc = float(request.form.get("battery_soc", DEFAULT_BATTERY_SOC))
-        ev_soc      = float(request.form.get("ev_soc",      DEFAULT_EV_SOC))
-        ev_target   = float(request.form.get("ev_target",   DEFAULT_EV_TARGET))
+        # SOC inputs — persist in alert_state so scheduler can use them
+        state = _load_state()
+        if request.method == "POST":
+            battery_soc = float(request.form.get("battery_soc", DEFAULT_BATTERY_SOC))
+            ev_soc      = float(request.form.get("ev_soc",      DEFAULT_EV_SOC))
+            ev_target   = float(request.form.get("ev_target",   DEFAULT_EV_TARGET))
+            state["battery_soc"] = battery_soc
+            state["ev_soc"]      = ev_soc
+            state["ev_target"]   = ev_target
+            _save_state(state)
+        else:
+            battery_soc = float(state.get("battery_soc", DEFAULT_BATTERY_SOC))
+            ev_soc      = float(state.get("ev_soc",      DEFAULT_EV_SOC))
+            ev_target   = float(state.get("ev_target",   DEFAULT_EV_TARGET))
 
-        client = get_client()
+        client  = get_client()
         site_id = get_site_id(client)
         general    = client.get_current_prices(site_id, next_intervals=96, previous_intervals=24, channel_type="general")
         feedin     = client.get_current_prices(site_id, next_intervals=96, previous_intervals=24, channel_type="feedIn")
@@ -81,6 +91,8 @@ def dashboard():
             hw=DEFAULT_HW,
         )
 
+        last_poll = state.get("last_poll", "")
+
         return render_template(
             "dashboard.html",
             current=current,
@@ -93,6 +105,8 @@ def dashboard():
             battery_soc=battery_soc,
             ev_soc=ev_soc,
             ev_target=ev_target,
+            last_poll=last_poll,
+            signal_configured=is_configured(),
             descriptor_colors=DESCRIPTOR_COLORS,
             descriptor_labels=DESCRIPTOR_LABELS,
         )
@@ -101,7 +115,41 @@ def dashboard():
         return render_template("error.html", error=traceback.format_exc()), 500
 
 
-# ── JSON API (reusable by future mobile clients) ─────────────────────────────
+@app.route("/alerts", methods=["GET", "POST"])
+def alerts_page():
+    state = _load_state()
+    msg = None
+
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "test":
+            ok = send_signal("🔔 Amber test notification — everything is working!")
+            msg = ("Test notification sent via Signal." if ok
+                   else "Signal not configured — set SIGNAL_PHONE and SIGNAL_CALLMEBOT_APIKEY in .env")
+        elif action == "save_thresholds":
+            # Write threshold overrides into alert state for display; real values go in .env
+            pass  # thresholds are .env-based for now
+
+    alert_config = {
+        "signal_configured": is_configured(),
+        "spike":        os.environ.get("ALERT_SPIKE",        "true").lower() != "false",
+        "cheap":        os.environ.get("ALERT_CHEAP",        "true").lower() != "false",
+        "cheap_desc":   os.environ.get("ALERT_CHEAP_DESCRIPTOR", "extremelyLow"),
+        "renewables":   os.environ.get("ALERT_RENEWABLES",   "true").lower() != "false",
+        "renewables_pct": float(os.environ.get("ALERT_RENEWABLES_PCT", 80)),
+        "daily_summary": os.environ.get("ALERT_DAILY_SUMMARY", "true").lower() != "false",
+        "daily_hour":   int(os.environ.get("DAILY_SUMMARY_HOUR", 7)),
+        "poll_interval": int(os.environ.get("POLL_INTERVAL_SECONDS", 300)),
+        "last_poll":    state.get("last_poll", "never"),
+        "spike_status": state.get("spike_status", "none"),
+        "was_cheap":    state.get("was_cheap", False),
+        "was_green":    state.get("was_green", False),
+    }
+
+    return render_template("alerts.html", config=alert_config, msg=msg)
+
+
+# ── JSON API ─────────────────────────────────────────────────────────────────
 
 @app.route("/api/prices/current")
 def api_current_prices():
@@ -141,4 +189,8 @@ def api_sites():
 
 
 if __name__ == "__main__":
+    # Only start scheduler in the main process (not the reloader child)
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+        import scheduler
+        scheduler.start(app)
     app.run(host="0.0.0.0", port=8888, debug=True)
