@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amber Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <style>
+    body { background: #1a1a2e; color: #e0e0e0; }
+    .card { background: #16213e; border: 1px solid #0f3460; }
+    .card-title { color: #a0b4d0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .price-big { font-size: 3.5rem; font-weight: 700; line-height: 1; }
+    .price-unit { font-size: 1rem; color: #a0b4d0; }
+    .badge-descriptor { font-size: 0.9rem; padding: 0.4em 0.8em; border-radius: 20px; }
+    .spike-banner { background: #d50000; color: #fff; text-align: center; padding: 0.5rem;
+                    font-weight: 700; font-size: 1.1rem; display: none; }
+    .plotly-chart { width: 100%; }
+    .stat-label { font-size: 0.75rem; color: #a0b4d0; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-size: 1.4rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+{% if current and current.spikeStatus == 'spike' %}
+<div class="spike-banner" id="spikeBanner" style="display:block">
+  ⚡ PRICE SPIKE IN PROGRESS — {{ "%.1f"|format(current.perKwh) }}¢/kWh ⚡
+</div>
+{% elif current and current.spikeStatus == 'potential' %}
+<div class="spike-banner" id="spikeBanner" style="display:block; background:#e65100">
+  ⚠ Potential spike — monitor prices closely
+</div>
+{% endif %}
+
+<nav class="navbar navbar-dark" style="background:#0f3460">
+  <div class="container-fluid">
+    <span class="navbar-brand fw-bold">⚡ Amber Monitor</span>
+    <span class="text-secondary small" id="lastUpdated">QLD</span>
+  </div>
+</nav>
+
+<div class="container-fluid py-3">
+
+  {# ── Row 1: Current price + key stats ── #}
+  <div class="row g-3 mb-3">
+
+    {# Current price card #}
+    <div class="col-12 col-md-4">
+      <div class="card h-100 p-3">
+        <div class="card-title mb-2">Current Price</div>
+        {% if current %}
+          {% set color = descriptor_colors.get(current.descriptor, '#90a4ae') %}
+          {% set label = descriptor_labels.get(current.descriptor, current.descriptor) %}
+          <div class="price-big" style="color: {{ color }}">
+            {{ "%.1f"|format(current.perKwh) }}<span class="price-unit">¢/kWh</span>
+          </div>
+          <div class="mt-2">
+            <span class="badge badge-descriptor" style="background:{{ color }}; color:#000">
+              {{ label }}
+            </span>
+            {% if current.spikeStatus != 'none' %}
+              <span class="badge bg-danger ms-1">{{ current.spikeStatus|upper }}</span>
+            {% endif %}
+          </div>
+          <div class="mt-3 text-secondary small">
+            Spot: {{ "%.2f"|format(current.spotPerKwh) }}¢ &nbsp;|&nbsp;
+            Renewables: {{ current.renewables|round|int }}%
+          </div>
+        {% else %}
+          <div class="text-secondary">No current price data</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Feed-in / export price #}
+    <div class="col-6 col-md-2">
+      <div class="card h-100 p-3">
+        <div class="card-title mb-2">Feed-in Rate</div>
+        {% if feedin_current %}
+          {% set fi_color = descriptor_colors.get(feedin_current.descriptor, '#90a4ae') %}
+          <div class="stat-value" style="color:{{ fi_color }}">
+            {{ "%.1f"|format(feedin_current.perKwh) }}<span class="price-unit" style="font-size:0.8rem">¢</span>
+          </div>
+          <div class="stat-label mt-1">
+            <span class="badge" style="background:{{ fi_color }};color:#000;font-size:0.7rem">
+              {{ descriptor_labels.get(feedin_current.descriptor, feedin_current.descriptor) }}
+            </span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Renewables #}
+    <div class="col-6 col-md-2">
+      <div class="card h-100 p-3">
+        <div class="card-title mb-2">Renewables</div>
+        {% if current %}
+          <div class="stat-value" style="color:#00c853">{{ current.renewables|round|int }}%</div>
+          <div class="stat-label mt-1">grid right now</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Cheapest window in next 24h #}
+    <div class="col-12 col-md-4">
+      <div class="card h-100 p-3">
+        <div class="card-title mb-2">Cheapest Window (next 24h)</div>
+        {% set cheapest = namespace(price=999, time='', duration=0) %}
+        {% for iv in forecast %}
+          {% if iv.perKwh < cheapest.price %}
+            {% set cheapest.price = iv.perKwh %}
+            {% set cheapest.time = iv.nemTime %}
+            {% set cheapest.descriptor = iv.descriptor %}
+          {% endif %}
+        {% endfor %}
+        {% if cheapest.price < 999 %}
+          {% set color = descriptor_colors.get(cheapest.descriptor, '#90a4ae') %}
+          <div class="stat-value" style="color:{{ color }}">
+            {{ "%.1f"|format(cheapest.price) }}<span class="price-unit" style="font-size:0.9rem">¢/kWh</span>
+          </div>
+          <div class="stat-label mt-1">{{ cheapest.time[:16] | replace("T"," ") }}</div>
+        {% else %}
+          <div class="text-secondary">No forecast data</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  {# ── Row 2: Price forecast chart ── #}
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="card p-3">
+        <div class="card-title mb-2">Price Forecast — next 48 hours</div>
+        <div id="priceChart" class="plotly-chart" style="height:320px"></div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Row 3: Renewables chart ── #}
+  <div class="row g-3 mb-3">
+    <div class="col-12">
+      <div class="card p-3">
+        <div class="card-title mb-2">Renewables Forecast — next 48 hours</div>
+        <div id="renewablesChart" class="plotly-chart" style="height:220px"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Price chart ──────────────────────────────────────────────────────────────
+const past     = {{ past | tojson }};
+const current  = {{ (current | tojson) if current else 'null' }};
+const forecast = {{ forecast | tojson }};
+
+const COLORS = {{ descriptor_colors | tojson }};
+
+function buildPriceTraces() {
+  const allIntervals = [...past];
+  if (current) allIntervals.push(current);
+  allIntervals.push(...forecast);
+
+  const times  = allIntervals.map(iv => iv.nemTime);
+  const prices = allIntervals.map(iv => iv.perKwh);
+  const colors = allIntervals.map(iv => COLORS[iv.descriptor] || '#90a4ae');
+  const isForecast = allIntervals.map(iv => iv.type === 'ForecastInterval');
+
+  // Split into actual vs forecast for styling
+  const actualTimes  = [], actualPrices  = [], actualColors  = [];
+  const fcstTimes    = [], fcstPrices    = [], fcstColors    = [];
+
+  allIntervals.forEach((iv, i) => {
+    if (iv.type === 'ForecastInterval') {
+      fcstTimes.push(times[i]);
+      fcstPrices.push(prices[i]);
+      fcstColors.push(colors[i]);
+    } else {
+      actualTimes.push(times[i]);
+      actualPrices.push(prices[i]);
+      actualColors.push(colors[i]);
+    }
+  });
+
+  const traces = [];
+  if (actualTimes.length) {
+    traces.push({
+      x: actualTimes, y: actualPrices,
+      type: 'bar', name: 'Actual',
+      marker: { color: actualColors, opacity: 0.9 },
+    });
+  }
+  if (fcstTimes.length) {
+    traces.push({
+      x: fcstTimes, y: fcstPrices,
+      type: 'bar', name: 'Forecast',
+      marker: { color: fcstColors, opacity: 0.5 },
+    });
+  }
+
+  // Zero line
+  traces.push({
+    x: [times[0], times[times.length-1]], y: [0, 0],
+    mode: 'lines', showlegend: false,
+    line: { color: '#ffffff', width: 1, dash: 'dot' },
+  });
+
+  return traces;
+}
+
+Plotly.newPlot('priceChart', buildPriceTraces(), {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor:  'rgba(0,0,0,0)',
+  font:  { color: '#e0e0e0', size: 11 },
+  xaxis: { gridcolor: '#1e3a5f', tickformat: '%a %H:%M', tickangle: -45 },
+  yaxis: { gridcolor: '#1e3a5f', title: '¢/kWh', zeroline: false },
+  bargap: 0.1,
+  margin: { t: 10, r: 10, b: 70, l: 55 },
+  legend: { orientation: 'h', y: 1.1 },
+}, { responsive: true });
+
+// ── Renewables chart ─────────────────────────────────────────────────────────
+const renewables = {{ renewables | tojson }};
+const rTimes  = renewables.map(r => r.nemTime);
+const rValues = renewables.map(r => r.renewables);
+const rColors = rValues.map(v => {
+  if (v >= 80) return '#00c853';
+  if (v >= 60) return '#69f0ae';
+  if (v >= 40) return '#ffeb3b';
+  if (v >= 20) return '#ff6d00';
+  return '#d50000';
+});
+
+Plotly.newPlot('renewablesChart', [{
+  x: rTimes, y: rValues,
+  type: 'scatter', fill: 'tozeroy', name: 'Renewables %',
+  line: { color: '#00c853', width: 2 },
+  fillcolor: 'rgba(0,200,83,0.15)',
+}], {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor:  'rgba(0,0,0,0)',
+  font:  { color: '#e0e0e0', size: 11 },
+  xaxis: { gridcolor: '#1e3a5f', tickformat: '%a %H:%M', tickangle: -45 },
+  yaxis: { gridcolor: '#1e3a5f', title: '%', range: [0, 100], zeroline: false },
+  margin: { t: 10, r: 10, b: 70, l: 55 },
+}, { responsive: true });
+</script>
+
+</body>
+</html>

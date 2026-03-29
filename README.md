@@ -31,19 +31,26 @@ flask run
 | `AMBER_SITE_ID` | Your site ID (auto-discovered on first run if blank) |
 | `FLASK_SECRET_KEY` | Random secret for Flask sessions |
 | `FLASK_ENV` | `development` or `production` |
+| `FOXESS_API_KEY` | FOX ESS cloud API key (generate at foxesscloud.com) |
+| `FOXESS_DEVICE_SN` | FOX ESS inverter serial number |
+| `FRONIUS_IP` | Local IP of Fronius Primo inverter |
+| `SIGNAL_PHONE` | Your phone number for Signal alerts (e.g. +61...) |
+| `SIGNAL_CALLMEBOT_APIKEY` | CallMeBot API key for Signal |
 
 ## Current Features
 
-> **Stage 0 — Not yet implemented.** See proposed features below.
+### Stage 1 — Data & Dashboard ✓
+- Live current price display with colour-coded descriptor (extremely low → spike)
+- Spike and potential-spike banner alerts
+- 48-hour price forecast chart (actual + forecast bars, colour-coded by descriptor)
+- 48-hour renewable energy percentage forecast chart
+- Cheapest upcoming window highlighted
+- JSON API endpoints for all data (ready for future mobile clients)
 
 ## Proposed Feature Development
 
-### Stage 1 — Data & Dashboard
-- Connect to Amber API and display current price with descriptor (low/neutral/high/spike)
-- Show price forecast chart for the next several hours
-- Display renewable energy percentage (current and forecast)
-- Show home battery state of charge (manual entry initially)
-- Show EV state of charge and charge target (manual entry initially)
+### Stage 1 — Data & Dashboard ✓ complete
+- Battery / EV state of charge display (manual entry or live from hardware)
 - Historical price viewer (7-day lookback)
 
 ### Stage 2 — Analysis & Opportunity Detection
@@ -58,11 +65,12 @@ flask run
 - Alert when prices drop to "extremelyLow" (good charging window)
 - Alert when renewable % is very high (green charging opportunity)
 - Daily summary: actual cost vs. baseline, savings achieved
-- Push notifications (email and/or SMS initially; mobile push in Stage 6)
+- Signal messenger notifications via CallMeBot (free, personal use)
 
 ### Stage 4 — Control Integration
-- Integrate with home battery system (TBD: Powerwall / Alpha ESS / Sonnen / other)
-- Integrate with EV charger (TBD: OCPP / smart charger API)
+- FOX ESS battery monitoring via FoxCloud API (SOC, charge schedules)
+- Fronius Primo solar monitoring via local network API (generation, power flow)
+- Integrate with EV charger (make/model TBD)
 - Manual charge/discharge commands via the app UI
 - Set battery charge/export schedule from the app
 
