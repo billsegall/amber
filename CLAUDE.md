@@ -5,9 +5,9 @@ Flask/Python web app for monitoring and optimizing electricity usage with Amber 
 
 ## User's Setup
 - **Location**: QLD, Australia
-- **Home battery**: FOX ESS, 42kWh capacity, minimum 10% (37.8kWh usable). Amber has VPP control.
+- **Home battery**: FOX ESS, 42kWh capacity, minimum 10% (37.8kWh usable). Max charge/discharge 10kW (inverter limit). Amber has VPP control.
 - **Solar**: Fronius Primo inverter, nominally 5.6kW, max ~25kWh/day generation. Amber has VPP control. User has SolarWeb login.
-- **EV**: 100kWh battery, typical charge target 85%. No fixed departure schedule — cost vs. range preference is user-configurable.
+- **EV**: 100kWh battery, typical charge target 85%. Charger: 7kW, OCPP (not yet online — expected in ~2 weeks). No fixed departure schedule — cost vs. range preference is user-configurable.
 - **Feed-in tariff**: Yes, live pricing via Amber API.
 - **API token env var**: `AMBER_API_TOKEN` (key name: AmberApp) = psk_130f47ac94402421dcf39f9ff2f4019d
 - **API base URL**: `https://api.amber.com.au/v1`

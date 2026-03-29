@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from flask import Flask, render_template, jsonify
 from dotenv import load_dotenv
 from amber_client import get_client, get_site_id
+from optimizer import analyse, HardwareConfig
 
 load_dotenv()
 
@@ -43,16 +44,43 @@ def _split_intervals(intervals: list[dict]):
     return past, current, forecast
 
 
-@app.route("/")
+DEFAULT_HW = HardwareConfig()
+
+# Default SOC values used when none are submitted
+DEFAULT_BATTERY_SOC = 50.0
+DEFAULT_EV_SOC = 50.0
+DEFAULT_EV_TARGET = 85.0
+
+
+@app.route("/", methods=["GET", "POST"])
 def dashboard():
     try:
+        # SOC inputs from form (POST) or defaults
+        from flask import request
+        battery_soc = float(request.form.get("battery_soc", DEFAULT_BATTERY_SOC))
+        ev_soc      = float(request.form.get("ev_soc",      DEFAULT_EV_SOC))
+        ev_target   = float(request.form.get("ev_target",   DEFAULT_EV_TARGET))
+
         client = get_client()
         site_id = get_site_id(client)
-        general   = client.get_current_prices(site_id, next_intervals=96, previous_intervals=24, channel_type="general")
-        feedin    = client.get_current_prices(site_id, next_intervals=96, previous_intervals=24, channel_type="feedIn")
+        general    = client.get_current_prices(site_id, next_intervals=96, previous_intervals=24, channel_type="general")
+        feedin     = client.get_current_prices(site_id, next_intervals=96, previous_intervals=24, channel_type="feedIn")
         renewables = client.get_renewables(state="QLD", next_intervals=96, previous_intervals=24)
+
         past, current, forecast = _split_intervals(general)
         _, feedin_current, feedin_forecast = _split_intervals(feedin)
+
+        analysis = analyse(
+            current_interval=current,
+            forecast=forecast,
+            feedin_current=feedin_current,
+            battery_soc_pct=battery_soc,
+            battery_target_pct=100.0,
+            ev_soc_pct=ev_soc,
+            ev_target_pct=ev_target,
+            hw=DEFAULT_HW,
+        )
+
         return render_template(
             "dashboard.html",
             current=current,
@@ -61,11 +89,16 @@ def dashboard():
             feedin_current=feedin_current,
             feedin_forecast=feedin_forecast,
             renewables=renewables,
+            analysis=analysis,
+            battery_soc=battery_soc,
+            ev_soc=ev_soc,
+            ev_target=ev_target,
             descriptor_colors=DESCRIPTOR_COLORS,
             descriptor_labels=DESCRIPTOR_LABELS,
         )
     except Exception as e:
-        return render_template("error.html", error=str(e)), 500
+        import traceback
+        return render_template("error.html", error=traceback.format_exc()), 500
 
 
 # ── JSON API (reusable by future mobile clients) ─────────────────────────────

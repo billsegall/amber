@@ -101,33 +101,195 @@
       </div>
     </div>
 
-    {# Cheapest window in next 24h #}
+    {# 24h price range preview #}
     <div class="col-12 col-md-4">
       <div class="card h-100 p-3">
-        <div class="card-title mb-2">Cheapest Window (next 24h)</div>
-        {% set cheapest = namespace(price=999, time='', duration=0) %}
-        {% for iv in forecast %}
-          {% if iv.perKwh < cheapest.price %}
-            {% set cheapest.price = iv.perKwh %}
-            {% set cheapest.time = iv.nemTime %}
-            {% set cheapest.descriptor = iv.descriptor %}
-          {% endif %}
-        {% endfor %}
-        {% if cheapest.price < 999 %}
-          {% set color = descriptor_colors.get(cheapest.descriptor, '#90a4ae') %}
-          <div class="stat-value" style="color:{{ color }}">
-            {{ "%.1f"|format(cheapest.price) }}<span class="price-unit" style="font-size:0.9rem">¢/kWh</span>
+        <div class="card-title mb-2">24h Range</div>
+        {% set s = analysis.stats_24h %}
+        <div class="d-flex gap-3 align-items-end">
+          <div>
+            <div class="stat-label">Min</div>
+            <div class="stat-value" style="color:#00c853;font-size:1.6rem">{{ s.min }}¢</div>
           </div>
-          <div class="stat-label mt-1">{{ cheapest.time[:16] | replace("T"," ") }}</div>
-        {% else %}
-          <div class="text-secondary">No forecast data</div>
+          <div class="text-secondary" style="font-size:1.2rem;padding-bottom:4px">→</div>
+          <div>
+            <div class="stat-label">Max</div>
+            <div class="stat-value" style="color:#ff6d00;font-size:1.6rem">{{ s.max }}¢</div>
+          </div>
+        </div>
+        <div class="mt-2 text-secondary small">Avg {{ s.avg }}¢ · current at {{ s.current_percentile|round|int }}th %ile</div>
+      </div>
+    </div>
+
+  </div>
+
+  {# ── Row 2: SOC inputs + Analysis ── #}
+  <div class="row g-3 mb-3">
+
+    {# SOC input form #}
+    <div class="col-12 col-md-4">
+      <div class="card p-3 h-100">
+        <div class="card-title mb-3">State of Charge</div>
+        <form method="POST" action="/">
+          <div class="mb-3">
+            <label class="form-label text-secondary small">Battery SOC %</label>
+            <div class="input-group input-group-sm">
+              <input type="number" name="battery_soc" class="form-control bg-dark text-light border-secondary"
+                     min="10" max="100" step="1" value="{{ battery_soc|int }}">
+              <span class="input-group-text bg-dark text-secondary border-secondary">%</span>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-secondary small">EV SOC %</label>
+            <div class="input-group input-group-sm">
+              <input type="number" name="ev_soc" class="form-control bg-dark text-light border-secondary"
+                     min="0" max="100" step="1" value="{{ ev_soc|int }}">
+              <span class="input-group-text bg-dark text-secondary border-secondary">%</span>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label text-secondary small">EV Target %</label>
+            <div class="input-group input-group-sm">
+              <input type="number" name="ev_target" class="form-control bg-dark text-light border-secondary"
+                     min="0" max="100" step="1" value="{{ ev_target|int }}">
+              <span class="input-group-text bg-dark text-secondary border-secondary">%</span>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-sm btn-outline-info w-100">Recalculate</button>
+        </form>
+      </div>
+    </div>
+
+    {# Battery analysis #}
+    <div class="col-12 col-md-4">
+      <div class="card p-3 h-100">
+        <div class="card-title mb-2">Battery Analysis</div>
+        {% set ba = analysis.battery %}
+        {% set bw = ba.best_window %}
+        <div class="mb-2">
+          <span class="stat-label">Needs</span>
+          <span class="stat-value ms-2">{{ ba.needed_kwh }} kWh</span>
+          <span class="text-secondary small ms-1">({{ battery_soc|int }}% → 100%)</span>
+        </div>
+        <div class="mb-2">
+          <span class="stat-label">Cost now</span>
+          <span class="stat-value ms-2">${{ "%.2f"|format(ba.cost_now_dollars) }}</span>
+        </div>
+        {% if bw %}
+          {% set bw_color = descriptor_colors.get(bw.descriptor, '#90a4ae') %}
+          <div class="mb-1">
+            <span class="stat-label">Best window</span>
+            <span class="badge ms-1" style="background:{{ bw_color }};color:#000;font-size:0.7rem">{{ bw.descriptor }}</span>
+          </div>
+          <div class="text-light small mb-1">{{ bw.start_time[:16]|replace("T"," ") }}</div>
+          <div class="mb-2">
+            <span class="stat-label">Cost then</span>
+            <span class="stat-value ms-2">${{ "%.2f"|format(bw.total_cost_dollars) }}</span>
+            <span class="text-secondary small ms-1">({{ bw.avg_price }}¢/kWh avg)</span>
+          </div>
+          {% if ba.saving_dollars > 0 %}
+            <div class="alert alert-success py-1 px-2 mb-0 small">
+              Save ${{ "%.2f"|format(ba.saving_dollars) }} ({{ ba.saving_pct }}%) by waiting
+            </div>
+          {% else %}
+            <div class="alert alert-secondary py-1 px-2 mb-0 small">Now is the best time to charge</div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {# EV analysis #}
+    <div class="col-12 col-md-4">
+      <div class="card p-3 h-100">
+        <div class="card-title mb-2">EV Analysis</div>
+        {% set ea = analysis.ev %}
+        {% set ew = ea.best_window %}
+        <div class="mb-2">
+          <span class="stat-label">Needs</span>
+          <span class="stat-value ms-2">{{ ea.needed_kwh }} kWh</span>
+          <span class="text-secondary small ms-1">({{ ev_soc|int }}% → {{ ev_target|int }}%)</span>
+        </div>
+        <div class="mb-2">
+          <span class="stat-label">Cost now</span>
+          <span class="stat-value ms-2">${{ "%.2f"|format(ea.cost_now_dollars) }}</span>
+        </div>
+        {% if ew %}
+          {% set ew_color = descriptor_colors.get(ew.descriptor, '#90a4ae') %}
+          <div class="mb-1">
+            <span class="stat-label">Best window</span>
+            <span class="badge ms-1" style="background:{{ ew_color }};color:#000;font-size:0.7rem">{{ ew.descriptor }}</span>
+          </div>
+          <div class="text-light small mb-1">{{ ew.start_time[:16]|replace("T"," ") }}</div>
+          <div class="mb-2">
+            <span class="stat-label">Cost then</span>
+            <span class="stat-value ms-2">${{ "%.2f"|format(ew.total_cost_dollars) }}</span>
+            <span class="text-secondary small ms-1">({{ ew.avg_price }}¢/kWh avg)</span>
+          </div>
+          {% if ea.saving_dollars > 0 %}
+            <div class="alert alert-success py-1 px-2 mb-0 small">
+              Save ${{ "%.2f"|format(ea.saving_dollars) }} ({{ ea.saving_pct }}%) by waiting
+            </div>
+          {% else %}
+            <div class="alert alert-secondary py-1 px-2 mb-0 small">Now is the best time to charge</div>
+          {% endif %}
         {% endif %}
       </div>
     </div>
 
   </div>
 
-  {# ── Row 2: Price forecast chart ── #}
+  {# ── Row 3: Price stats + feed-in opportunity ── #}
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6">
+      <div class="card p-3">
+        <div class="card-title mb-2">Price Stats — next 24h</div>
+        {% set s = analysis.stats_24h %}
+        <div class="d-flex justify-content-between align-items-end">
+          <div class="text-center">
+            <div class="stat-label">Min</div>
+            <div class="stat-value" style="color:#00c853">{{ s.min }}¢</div>
+          </div>
+          <div class="text-center">
+            <div class="stat-label">Avg</div>
+            <div class="stat-value" style="color:#90a4ae">{{ s.avg }}¢</div>
+          </div>
+          <div class="text-center">
+            <div class="stat-label">Current</div>
+            <div class="stat-value" style="color:#69f0ae">{{ s.current }}¢</div>
+            <div class="stat-label">{{ s.current_percentile|round|int }}th %ile</div>
+          </div>
+          <div class="text-center">
+            <div class="stat-label">Max</div>
+            <div class="stat-value" style="color:#ff6d00">{{ s.max }}¢</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="card p-3">
+        <div class="card-title mb-2">Export / Feed-in</div>
+        {% set fi = analysis.feedin %}
+        <div class="mb-1">
+          <span class="stat-label">Current rate</span>
+          <span class="stat-value ms-2">{{ fi.price }}¢/kWh</span>
+        </div>
+        <div class="mb-2 text-secondary small">
+          {{ "%+.2f"|format(fi.vs_avg_24h) }}¢ vs 24h avg buy price
+        </div>
+        {% if fi.opportunity %}
+          <div class="alert alert-success py-1 px-2 mb-0 small">
+            ✓ Feed-in rate is above average buy price — good time to export
+          </div>
+        {% else %}
+          <div class="alert alert-secondary py-1 px-2 mb-0 small">
+            Hold — buy price expected to be lower than current feed-in rate
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ── Row 5: Price forecast chart ── #}
   <div class="row g-3 mb-3">
     <div class="col-12">
       <div class="card p-3">

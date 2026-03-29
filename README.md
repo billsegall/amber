@@ -85,11 +85,16 @@ flask run
 - iOS app (React Native or native Swift)
 - Reuses the Flask app's REST API backend
 
+### Stage 7 — User Accounts & Configuration
+- User login and authentication
+- Per-user configurable settings: location/state, battery capacity and charge rate, EV battery capacity/charge rate/target SOC, cost vs. range preference, notification preferences
+- Multi-user support (for households or future public deployment)
+
 ---
 
 ## Hardware Context
-- **Home battery**: 42kWh (usable: ~37.8kWh, minimum 10% reserve)
-- **Electric vehicle**: 100kWh battery, typical charge target 85%
+- **Home battery**: FOX ESS 42kWh (usable: ~37.8kWh, minimum 10% reserve), max charge/discharge 10kW
+- **Electric vehicle**: 100kWh battery, typical charge target 85%, 7kW OCPP charger
 
 ## License
 Private / personal use.
