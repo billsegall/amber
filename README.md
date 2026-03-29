@@ -19,8 +19,8 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your API token and site ID
-flask run
+# Edit .env with your credentials
+python app.py
 ```
 
 ### Configuration (`.env`)
@@ -31,54 +31,78 @@ flask run
 | `AMBER_SITE_ID` | Your site ID (auto-discovered on first run if blank) |
 | `FLASK_SECRET_KEY` | Random secret for Flask sessions |
 | `FLASK_ENV` | `development` or `production` |
-| `FOXESS_API_KEY` | FOX ESS cloud API key (generate at foxesscloud.com) |
-| `FOXESS_DEVICE_SN` | FOX ESS inverter serial number |
+| `FOXESS_API_KEY` | FOX ESS cloud API private token (foxesscloud.com → profile → API Management) |
+| `FOXESS_DEVICE_SN` | FOX ESS inverter serial number (auto-discovered if blank) |
 | `FRONIUS_IP` | Local IP of Fronius Primo inverter |
-| `SIGNAL_PHONE` | Your phone number for Signal alerts (e.g. +61...) |
+| `NTFY_TOPIC` | ntfy.sh topic for push notifications (install ntfy app, subscribe to topic) |
+| `SIGNAL_PHONE` | Phone number for Signal alerts via CallMeBot (alternative to ntfy) |
 | `SIGNAL_CALLMEBOT_APIKEY` | CallMeBot API key for Signal |
+| `ALERT_SPIKE` | Enable spike alerts (default: true) |
+| `ALERT_CHEAP` | Enable cheap window alerts (default: true) |
+| `ALERT_CHEAP_DESCRIPTOR` | Descriptor threshold for cheap alert (default: extremelyLow) |
+| `ALERT_RENEWABLES` | Enable high renewables alerts (default: true) |
+| `ALERT_RENEWABLES_PCT` | Renewables % threshold (default: 80) |
+| `ALERT_DAILY_SUMMARY` | Enable 7am daily summary (default: true) |
+| `DAILY_SUMMARY_HOUR` | Hour for daily summary in NEM time (default: 7) |
+| `POLL_INTERVAL_SECONDS` | Background polling interval (default: 300) |
 
 ## Current Features
 
-### Stage 1 — Data & Dashboard ✓
-- Live current price display with colour-coded descriptor (extremely low → spike)
-- Spike and potential-spike banner alerts
-- 48-hour price forecast chart (actual + forecast bars, colour-coded by descriptor)
-- 48-hour renewable energy percentage forecast chart
-- Cheapest upcoming window highlighted
-- JSON API endpoints for all data (ready for future mobile clients)
+### Dashboard (`/`)
+- Live current price — large colour-coded display with descriptor (extremely low → spike)
+- Spike and potential-spike banner alerts at top of page
+- Live battery SOC and charge/discharge rate (FOX ESS cloud API, auto-refreshed)
+- Live solar generation, daily kWh, and grid export/import (Fronius local API — shows "asleep" at night)
+- Live feed-in rate (separate Amber channel)
+- Renewable energy % for the current interval
+- 24h price range (min/avg/max, current percentile)
+- **Power Flow panel** — real-time solar / battery / grid / house load in kW
+- **7-day usage chart** — daily consumed vs exported kWh (Plotly)
+
+### Arbitrage Analysis
+- SOC input form for EV (battery SOC auto-populated from FOX ESS)
+- **Battery analysis** — kWh needed to full, cost to charge now vs cheapest upcoming window, $ saving
+- **EV analysis** — same for EV (7kW charge rate, configurable target %)
+- **Price stats** — 24h min/avg/max, current price percentile
+- **Feed-in opportunity** — whether current export rate beats average upcoming buy price
+
+### Price & Renewables Charts
+- 48-hour price forecast chart — actual + forecast bars, colour-coded by descriptor
+- 48-hour renewable energy % forecast chart
+
+### Alerts (`/alerts`)
+- Background polling every 5 minutes via APScheduler
+- **Spike alert** — instant notification when spike starts or clears
+- **Cheap window alert** — notification when price enters extremelyLow (configurable)
+- **High renewables alert** — notification when grid hits 80%+ green (configurable)
+- **Daily summary** — 7am: price range, best charging windows, potential savings
+- Push notifications via **ntfy.sh** (primary) or Signal/CallMeBot (fallback)
+- Alerts page shows configuration, current state, and test button
+
+### JSON API
+All data available as JSON for future mobile clients:
+- `GET /api/prices/current` — current + 48h forecast prices
+- `GET /api/renewables` — renewables forecast
+- `GET /api/usage` — 7-day usage by channel
+- `GET /api/prices/history` — 7-day historical prices
+- `GET /api/sites` — site information
 
 ## Proposed Feature Development
 
 ### Stage 1 — Data & Dashboard ✓ complete
-- Battery / EV state of charge display (manual entry or live from hardware)
-- Historical price viewer (7-day lookback)
-
-### Stage 2 — Analysis & Opportunity Detection
-- Identify cheapest windows in the forecast for battery charging
-- Identify periods where exporting (feed-in) would be profitable
-- Calculate cost of charging EV to target now vs. waiting for cheaper window
-- Track daily cost vs. a flat-rate baseline to measure savings
-- Arbitrage score: visualize how much money could be saved by optimal scheduling
-
-### Stage 3 — Notifications & Alerts
-- Alert when prices spike above a threshold
-- Alert when prices drop to "extremelyLow" (good charging window)
-- Alert when renewable % is very high (green charging opportunity)
-- Daily summary: actual cost vs. baseline, savings achieved
-- Signal messenger notifications via CallMeBot (free, personal use)
-
-### Stage 4 — Control Integration
-- FOX ESS battery monitoring via FoxCloud API (SOC, charge schedules)
-- Fronius Primo solar monitoring via local network API (generation, power flow)
-- Integrate with EV charger (make/model TBD)
-- Manual charge/discharge commands via the app UI
-- Set battery charge/export schedule from the app
+### Stage 2 — Analysis & Opportunity Detection ✓ complete
+### Stage 3 — Notifications & Alerts ✓ complete
+### Stage 4 — Control Integration ✓ (monitoring complete; direct control TBD)
+- FOX ESS battery: live SOC and power flow ✓
+- Fronius Primo solar: live generation and grid flow ✓
+- EV charger: OCPP, not yet online (expected ~2 weeks)
+- Direct battery charge/discharge commands: pending
 
 ### Stage 5 — Automated Optimization
-- Automated overnight EV charging scheduler: charges during cheapest forecast window while ensuring car is ready by a user-defined departure time
-- Battery charge/discharge optimization: charge during cheap windows, export or hold during expensive windows
-- Configurable constraints: minimum battery reserve, maximum charge rate, departure time
-- Backtesting: replay historical prices to evaluate what a strategy would have saved
+- Automated EV charging scheduler: charge during cheapest forecast window
+- Battery charge/discharge optimization: charge cheap, export/hold when expensive
+- Configurable constraints: minimum reserve, max charge rate, departure time
+- Backtesting: replay historical prices to evaluate strategy savings
 
 ### Stage 6 — Mobile Apps
 - Android app (React Native or native Kotlin)
@@ -88,13 +112,15 @@ flask run
 ### Stage 7 — User Accounts & Configuration
 - User login and authentication
 - Per-user configurable settings: location/state, battery capacity and charge rate, EV battery capacity/charge rate/target SOC, cost vs. range preference, notification preferences
-- Multi-user support (for households or future public deployment)
+- Multi-user support
 
 ---
 
 ## Hardware Context
 - **Home battery**: FOX ESS 42kWh (usable: ~37.8kWh, minimum 10% reserve), max charge/discharge 10kW
-- **Electric vehicle**: 100kWh battery, typical charge target 85%, 7kW OCPP charger
+- **Solar**: Fronius Primo, nominally 5.6kW, max ~25kWh/day generation
+- **Electric vehicle**: 100kWh battery, typical charge target 85%, 7kW OCPP charger (not yet online)
+- **Location**: QLD, Australia
 
 ## License
 Private / personal use.
