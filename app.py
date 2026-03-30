@@ -398,6 +398,144 @@ def preferences():
     return render_template("preferences.html", prefs=prefs, errors=errors, success=success)
 
 
+# ── Battery control ──────────────────────────────────────────────────────────
+WORK_MODES = ["SelfUse", "Feedin", "Backup"]
+
+
+@app.route("/battery", methods=["GET", "POST"])
+@login_required
+def battery_control():
+    fc = get_foxess_client()
+    sn = get_device_sn() if fc else None
+
+    errors, success = [], []
+    force_charge = None
+    settings = None
+    realtime = None
+
+    if fc and sn:
+        if request.method == "POST":
+            action = request.form.get("action")
+
+            if action == "set_work_mode":
+                mode = request.form.get("work_mode")
+                if mode not in WORK_MODES:
+                    errors.append(f"Unknown work mode: {mode}")
+                elif fc.set_setting(sn, "workMode", mode):
+                    success.append(f"Work mode set to {mode}")
+                    _cache.pop("bat_settings", None)
+                else:
+                    errors.append("Failed to set work mode")
+
+            elif action == "set_min_soc":
+                try:
+                    min_soc = int(request.form.get("min_soc_on_grid", 10))
+                    if not 0 <= min_soc <= 100:
+                        raise ValueError
+                except ValueError:
+                    errors.append("Min SOC must be 0–100")
+                else:
+                    if fc.set_setting(sn, "minSocOnGrid", str(min_soc)):
+                        success.append(f"Min SOC on grid set to {min_soc}%")
+                        _cache.pop("bat_settings", None)
+                    else:
+                        errors.append("Failed to set min SOC")
+
+            elif action == "set_force_charge":
+                try:
+                    def _hm(field):
+                        val = request.form.get(field, "00:00")
+                        h, m = val.split(":")
+                        return {"hour": int(h), "minute": int(m)}
+
+                    data = {
+                        "enable1":    "enable1" in request.form,
+                        "startTime1": _hm("start1"),
+                        "endTime1":   _hm("end1"),
+                        "enable2":    "enable2" in request.form,
+                        "startTime2": _hm("start2"),
+                        "endTime2":   _hm("end2"),
+                    }
+                except Exception:
+                    errors.append("Invalid time format")
+                else:
+                    if fc.set_force_charge(sn, data):
+                        success.append("Force charge schedule updated")
+                        _cache.pop("bat_force_charge", None)
+                    else:
+                        errors.append("Failed to update force charge schedule")
+
+            elif action == "charge_now":
+                from datetime import datetime, timedelta
+                try:
+                    minutes = int(request.form.get("duration_minutes", 60))
+                    if minutes <= 0:
+                        raise ValueError
+                except ValueError:
+                    errors.append("Invalid duration")
+                else:
+                    now  = datetime.now()
+                    end  = now + timedelta(minutes=minutes)
+                    data = {
+                        "enable1":    True,
+                        "startTime1": {"hour": now.hour, "minute": now.minute},
+                        "endTime1":   {"hour": end.hour, "minute": end.minute},
+                        "enable2":    False,
+                        "startTime2": {"hour": 0, "minute": 0},
+                        "endTime2":   {"hour": 0, "minute": 0},
+                    }
+                    if fc.set_force_charge(sn, data):
+                        h, m = divmod(minutes, 60)
+                        label = f"{h}h {m}m" if h and m else (f"{h}h" if h else f"{m}m")
+                        success.append(f"Charging from grid for {label} (until {end.strftime('%H:%M')})")
+                        _cache.pop("bat_force_charge", None)
+                    else:
+                        errors.append("Failed to start charging")
+
+            elif action == "stop_charging":
+                data = {
+                    "enable1": False, "startTime1": {"hour": 0, "minute": 0},
+                    "endTime1": {"hour": 0, "minute": 0},
+                    "enable2": False, "startTime2": {"hour": 0, "minute": 0},
+                    "endTime2": {"hour": 0, "minute": 0},
+                }
+                if fc.set_force_charge(sn, data):
+                    success.append("Force charge stopped")
+                    _cache.pop("bat_force_charge", None)
+                else:
+                    errors.append("Failed to stop charging")
+
+            elif action == "clear_force_charge":
+                data = {
+                    "enable1": False, "startTime1": {"hour": 0, "minute": 0},
+                    "endTime1": {"hour": 0, "minute": 0},
+                    "enable2": False, "startTime2": {"hour": 0, "minute": 0},
+                    "endTime2": {"hour": 0, "minute": 0},
+                }
+                if fc.set_force_charge(sn, data):
+                    success.append("Force charge cleared")
+                    _cache.pop("bat_force_charge", None)
+                else:
+                    errors.append("Failed to clear force charge")
+
+        # Serve from cache; force_charge and settings are slow FOX ESS cloud calls
+        realtime,     _ = _ensure_fresh("foxess",          fc.get_realtime, sn)
+        force_charge, _ = _ensure_fresh("bat_force_charge", fc.get_force_charge, sn)
+        settings,     _ = _ensure_fresh("bat_settings",    fc.get_settings, sn, ["workMode", "minSocOnGrid"])
+
+    return render_template(
+        "battery.html",
+        realtime=realtime,
+        force_charge=force_charge,
+        settings=settings or {},
+        work_modes=WORK_MODES,
+        sn=sn,
+        errors=errors,
+        success=success,
+        foxess_available=bool(fc and sn),
+    )
+
+
 # ── JSON API ──────────────────────────────────────────────────────────────────
 @app.route("/api/prices/current")
 @login_required

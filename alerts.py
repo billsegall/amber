@@ -32,8 +32,10 @@ def _load_state() -> dict:
 
 
 def _save_state(state: dict):
-    with open(STATE_FILE, "w") as f:
+    tmp = STATE_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(state, f, indent=2)
+    os.replace(tmp, STATE_FILE)  # atomic on POSIX — never leaves a partial file
 
 
 def check_and_alert(current: dict, feedin_current: dict | None,
@@ -103,7 +105,8 @@ def check_and_alert(current: dict, feedin_current: dict | None,
         if foxess_realtime:
             bat_charge_kw = foxess_realtime.get("batChargePower", 0) or 0
             is_charging   = bat_charge_kw > 0.2   # >200W = actively charging
-            was_charging  = state.get("was_charging", False)
+            # None = never seen (fresh state file); False = known not charging
+            was_charging  = state.get("was_charging")
             bat_soc       = foxess_realtime.get("SoC", 0) or 0
             log.info("Battery charge check: was_charging=%s is_charging=%s (%.2fkW) SoC=%.0f%%",
                      was_charging, is_charging, bat_charge_kw, bat_soc)

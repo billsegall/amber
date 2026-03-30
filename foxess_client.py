@@ -108,6 +108,39 @@ class FoxESSClient:
         return {item["variable"]: item.get("value") for item in datas}
 
 
+    # ── Force charge time windows ─────────────────────────────────────────────
+
+    def get_force_charge(self, sn: str) -> dict | None:
+        """Return force charge time config (two periods)."""
+        return self._post("/op/v0/device/battery/forceChargeTime/get", {"sn": sn})
+
+    def set_force_charge(self, sn: str, data: dict) -> bool:
+        """
+        Set force charge time windows.
+        data keys: enable1, startTime1/endTime1 ({"hour":H,"minute":M}),
+                   enable2, startTime2/endTime2.
+        Returns True on success.
+        """
+        payload = {"sn": sn, **data}
+        result = self._post("/op/v0/device/battery/forceChargeTime/set", payload)
+        return result is not None
+
+    # ── Work mode & SOC settings ──────────────────────────────────────────────
+
+    def get_settings(self, sn: str, keys: list[str]) -> dict | None:
+        """Query one or more device settings by key. Returns {key: value, ...}."""
+        result = self._post("/op/v0/device/setting/query", {"sn": sn, "keys": keys})
+        if not result:
+            return None
+        return {item["key"]: item.get("value") for item in result}
+
+    def set_setting(self, sn: str, key: str, value: str) -> bool:
+        """Set a single device setting. Returns True on success."""
+        result = self._post("/op/v0/device/setting/set",
+                            {"sn": sn, "key": key, "value": value})
+        return result is not None
+
+
 def get_client() -> FoxESSClient | None:
     token = os.environ.get("FOXESS_API_KEY", "").strip()
     if not token:
