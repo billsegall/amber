@@ -229,9 +229,9 @@ def dashboard():
         data_stale = any([s1, s2, s3, s4, s5])
 
         # Solar offline detection — daytime in AEST (QLD, UTC+10) with near-zero generation
-        from datetime import timezone, timedelta as _td
+        from datetime import datetime as _dt, timezone, timedelta as _td
         _aest = timezone(_td(hours=10))
-        _hour = datetime.now(_aest).hour
+        _hour = _dt.now(_aest).hour
         _is_daytime = 6 <= _hour < 20
         _sol_kw = 0.0
         if foxess:
