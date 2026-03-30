@@ -143,8 +143,11 @@
 
     {# Solar — derive kW from energy balance; daily kWh from Fronius local API #}
     <div class="col-6 col-md-2">
-      <div class="card h-100 p-3">
-        <div class="card-title mb-2">Solar</div>
+      <div class="card h-100 p-3" {% if solar_offline %}style="border-color:#ff6d00"{% endif %}>
+        <div class="card-title mb-2">
+          Solar
+          {% if solar_offline %}<span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem">offline?</span>{% endif %}
+        </div>
         {% if foxess %}
           {% set _bc = foxess.batChargePower or 0 %}
           {% set _bd = foxess.batDischargePower or 0 %}
