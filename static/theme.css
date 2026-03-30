@@ -35,5 +35,10 @@ body  { background: #1a1a2e; color: #e0e0e0; }
 .form-check-input:checked    { background-color: #00c853; border-color: #00c853; }
 .form-check-label            { color: #e0e0e0; }
 
+/* ── Navbar ── */
+.navbar-brand { font-size: 0.95rem; }
+.navbar-nav .nav-link { font-size: 0.82rem; padding-top: 0.3rem; padding-bottom: 0.3rem; }
+.navbar { padding-top: 0.3rem; padding-bottom: 0.3rem; }
+
 /* ── Misc ── */
 .section-divider { border-color: #0f3460; margin: 1.5rem 0; }
