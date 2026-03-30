@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amber — Preferences</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>
+    body { background: #1a1a2e; color: #e0e0e0; }
+    .card { background: #16213e; border: 1px solid #0f3460; }
+    .card-title { color: #a0b4d0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+    .form-control, .form-select {
+      background: #0f3460; border-color: #1e5a8a; color: #e0e0e0;
+    }
+    .form-control:focus, .form-select:focus {
+      background: #0f3460; border-color: #69f0ae; color: #e0e0e0; box-shadow: none;
+    }
+    .form-check-input { background-color: #0f3460; border-color: #1e5a8a; }
+    .form-check-input:checked { background-color: #00c853; border-color: #00c853; }
+    .section-divider { border-color: #0f3460; margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark" style="background:#0f3460">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="/">⚡ Amber Monitor</a>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="text-secondary small">{{ current_user.username }}</span>
+      <a href="/logout" class="btn btn-sm btn-outline-secondary">Sign out</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4" style="max-width:720px">
+  <h5 class="mb-4">Preferences</h5>
+
+  {% if errors %}
+    {% for e in errors %}
+      <div class="alert alert-danger py-2 small">{{ e }}</div>
+    {% endfor %}
+  {% endif %}
+  {% if success %}
+    {% for s in success %}
+      <div class="alert alert-success py-2 small">{{ s }}</div>
+    {% endfor %}
+  {% endif %}
+
+  {# ── Settings form ── #}
+  <form method="POST">
+    <input type="hidden" name="action" value="save_prefs">
+
+    {# Location #}
+    <div class="card p-3 mb-3">
+      <div class="card-title mb-3">Location</div>
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label text-secondary small">State</label>
+          <select name="location_state" class="form-select form-select-sm">
+            {% for s in ['QLD','NSW','VIC','SA','WA','TAS','NT','ACT'] %}
+              <option value="{{ s }}" {% if prefs.location_state == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {# Battery #}
+    <div class="card p-3 mb-3">
+      <div class="card-title mb-3">Home Battery</div>
+      <div class="row g-3">
+        <div class="col-6 col-md-3">
+          <label class="form-label text-secondary small">Capacity (kWh)</label>
+          <input type="number" name="battery_capacity_kwh" class="form-control form-control-sm"
+                 step="0.1" value="{{ prefs.battery_capacity_kwh }}">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label text-secondary small">Min SOC (%)</label>
+          <input type="number" name="battery_min_soc_pct" class="form-control form-control-sm"
+                 step="1" min="0" max="50" value="{{ prefs.battery_min_soc_pct|int }}">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label text-secondary small">Max charge (kW)</label>
+          <input type="number" name="battery_max_charge_kw" class="form-control form-control-sm"
+                 step="0.5" value="{{ prefs.battery_max_charge_kw }}">
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label text-secondary small">Max discharge (kW)</label>
+          <input type="number" name="battery_max_discharge_kw" class="form-control form-control-sm"
+                 step="0.5" value="{{ prefs.battery_max_discharge_kw }}">
+        </div>
+      </div>
+    </div>
+
+    {# EV #}
+    <div class="card p-3 mb-3">
+      <div class="card-title mb-3">Electric Vehicle</div>
+      <div class="row g-3">
+        <div class="col-6 col-md-4">
+          <label class="form-label text-secondary small">Battery capacity (kWh)</label>
+          <input type="number" name="ev_capacity_kwh" class="form-control form-control-sm"
+                 step="1" value="{{ prefs.ev_capacity_kwh|int }}">
+        </div>
+        <div class="col-6 col-md-4">
+          <label class="form-label text-secondary small">Charge rate (kW)</label>
+          <input type="number" name="ev_charge_kw" class="form-control form-control-sm"
+                 step="0.5" value="{{ prefs.ev_charge_kw }}">
+        </div>
+        <div class="col-6 col-md-4">
+          <label class="form-label text-secondary small">Default target SOC (%)</label>
+          <input type="number" name="ev_target_soc" class="form-control form-control-sm"
+                 step="1" min="10" max="100" value="{{ prefs.ev_target_soc|int }}">
+        </div>
+      </div>
+    </div>
+
+    {# Notifications #}
+    <div class="card p-3 mb-3">
+      <div class="card-title mb-3">Notifications</div>
+      <div class="mb-3">
+        <label class="form-label text-secondary small">ntfy.sh topic</label>
+        <input type="text" name="ntfy_topic" class="form-control form-control-sm"
+               placeholder="e.g. amber-bill8" value="{{ prefs.ntfy_topic }}">
+        <div class="form-text text-secondary">Install the ntfy app and subscribe to this topic.</div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label text-secondary small">Background poll interval (seconds)</label>
+        <input type="number" name="poll_interval_seconds" class="form-control form-control-sm"
+               step="60" min="60" value="{{ prefs.poll_interval_seconds }}">
+      </div>
+    </div>
+
+    {# Alerts #}
+    <div class="card p-3 mb-3">
+      <div class="card-title mb-3">Alerts</div>
+      <div class="row g-3">
+
+        <div class="col-12 col-md-6">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_spike" value="1" id="sw_spike"
+                   {% if prefs.alert_spike %}checked{% endif %}>
+            <label class="form-check-label" for="sw_spike">Price spike</label>
+          </div>
+          <div class="text-secondary small ms-4">Alert when a spike starts or clears</div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_battery_charge_stop" value="1" id="sw_bcs"
+                   {% if prefs.alert_battery_charge_stop %}checked{% endif %}>
+            <label class="form-check-label" for="sw_bcs">Battery charging stopped</label>
+          </div>
+          <div class="text-secondary small ms-4">Alert when battery stops charging mid-session</div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_cheap" value="1" id="sw_cheap"
+                   {% if prefs.alert_cheap %}checked{% endif %}>
+            <label class="form-check-label" for="sw_cheap">Cheap window</label>
+          </div>
+          <div class="mt-1 ms-4">
+            <select name="alert_cheap_descriptor" class="form-select form-select-sm" style="max-width:180px">
+              {% for d in descriptors %}
+                <option value="{{ d }}" {% if prefs.alert_cheap_descriptor == d %}selected{% endif %}>
+                  {{ descriptor_labels[d] }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_renewables" value="1" id="sw_ren"
+                   {% if prefs.alert_renewables %}checked{% endif %}>
+            <label class="form-check-label" for="sw_ren">High renewables</label>
+          </div>
+          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
+            <input type="number" name="alert_renewables_pct" class="form-control form-control-sm"
+                   style="max-width:80px" step="5" min="0" max="100"
+                   value="{{ prefs.alert_renewables_pct|int }}">
+            <span class="text-secondary small">% threshold</span>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_daily_summary" value="1" id="sw_daily"
+                   {% if prefs.alert_daily_summary %}checked{% endif %}>
+            <label class="form-check-label" for="sw_daily">Daily summary</label>
+          </div>
+          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
+            <input type="number" name="daily_summary_hour" class="form-control form-control-sm"
+                   style="max-width:70px" step="1" min="0" max="23"
+                   value="{{ prefs.daily_summary_hour }}">
+            <span class="text-secondary small">:00 NEM time</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-info">Save preferences</button>
+    <a href="/" class="btn btn-outline-secondary ms-2">Cancel</a>
+  </form>
+
+  {# ── Password change ── #}
+  <hr class="section-divider">
+  <div class="card p-3 mb-3">
+    <div class="card-title mb-3">Change Password</div>
+    <form method="POST" style="max-width:400px">
+      <input type="hidden" name="action" value="change_password">
+      <div class="mb-3">
+        <label class="form-label text-secondary small">Current password</label>
+        <input type="password" name="current_password" class="form-control form-control-sm"
+               autocomplete="current-password">
+      </div>
+      <div class="mb-3">
+        <label class="form-label text-secondary small">New password</label>
+        <input type="password" name="new_password" class="form-control form-control-sm"
+               autocomplete="new-password" minlength="8">
+      </div>
+      <div class="mb-3">
+        <label class="form-label text-secondary small">Confirm new password</label>
+        <input type="password" name="confirm_password" class="form-control form-control-sm"
+               autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn btn-sm btn-warning">Change password</button>
+    </form>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

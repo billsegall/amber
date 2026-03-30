@@ -46,7 +46,16 @@ python app.py
 | `DAILY_SUMMARY_HOUR` | Hour for daily summary in NEM time (default: 7) |
 | `POLL_INTERVAL_SECONDS` | Background polling interval (default: 300) |
 
+## Default credentials
+On first run a default `admin` / `amber` account is created — log in and change the password immediately via the Preferences page.
+
 ## Current Features
+
+### Authentication
+- Login required for all pages
+- Session managed via Flask-Login
+- Password change on the Preferences page
+- New users prompted to change password on first login
 
 ### Dashboard (`/`)
 - Live current price — large colour-coded display with descriptor (extremely low → spike)
@@ -75,9 +84,17 @@ python app.py
 - **Spike alert** — instant notification when spike starts or clears
 - **Cheap window alert** — notification when price enters extremelyLow (configurable)
 - **High renewables alert** — notification when grid hits 80%+ green (configurable)
+- **Battery charging stopped** — notification when battery stops charging before full
 - **Daily summary** — 7am: price range, best charging windows, potential savings
 - Push notifications via **ntfy.sh** (primary) or Signal/CallMeBot (fallback)
-- Alerts page shows configuration, current state, and test button
+- Alerts page shows live state (spike/cheap/green/charging) and test button
+
+### Preferences (`/preferences`)
+- All hardware config: battery capacity/SOC/charge rate, EV capacity/rate/target SOC
+- Location/state (used for renewables data)
+- Notification: ntfy.sh topic, poll interval
+- All alert thresholds configurable via UI (no .env editing needed)
+- Password change
 
 ### JSON API
 All data available as JSON for future mobile clients:
@@ -109,10 +126,10 @@ All data available as JSON for future mobile clients:
 - iOS app (React Native or native Swift)
 - Reuses the Flask app's REST API backend
 
-### Stage 7 — User Accounts & Configuration
-- User login and authentication
-- Per-user configurable settings: location/state, battery capacity and charge rate, EV battery capacity/charge rate/target SOC, cost vs. range preference, notification preferences
-- Multi-user support
+### Stage 7 — User Accounts & Configuration ✓ (single user complete)
+- User login and authentication ✓
+- Per-user configurable settings ✓ (hardware, alerts, notifications)
+- Multi-user support: structure in place, admin UI pending
 
 ---
 

@@ -3,3 +3,4 @@ requests>=2.31
 python-dotenv>=1.0
 plotly>=5.18
 apscheduler>=3.10
+flask-login>=0.6
