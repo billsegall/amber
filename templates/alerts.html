@@ -23,6 +23,8 @@
     .form-check-label { color: #e0e0e0; }
     .form-label { color: #c0cfe0; }
     .text-secondary { color: #8aa0b8 !important; }
+    .alert-row { border-bottom: 1px solid #0f3460; padding: 0.75rem 0; }
+    .alert-row:last-child { border-bottom: none; }
   </style>
 </head>
 <body>
@@ -82,39 +84,47 @@
     </form>
   </div>
 
-  {# ── Alert settings ── #}
+  {# ── Alerts — toggle + current state together ── #}
   <form method="POST">
     <input type="hidden" name="action" value="save_alerts">
-
     <div class="card mb-3 p-3">
-      <div class="card-title mb-3">Alert Settings</div>
-      <div class="row g-3">
+      <div class="card-title mb-3">
+        Alerts
+        <span class="text-secondary fw-normal ms-2" style="font-size:0.75rem">
+          last poll: {{ config.last_poll[:19]|replace("T"," ") if config.last_poll != "never" else "not yet" }}
+        </span>
+      </div>
 
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch">
+      {# Price spike #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
             <input class="form-check-input" type="checkbox" name="alert_spike" value="1" id="sw_spike"
                    {% if config.spike %}checked{% endif %}>
             <label class="form-check-label" for="sw_spike">Price spike</label>
           </div>
-          <div class="text-secondary small ms-4 mt-1">Alert when a spike starts or clears</div>
+          <div class="text-secondary small ms-4">Alert when a spike starts or clears</div>
         </div>
-
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" name="alert_battery_charge_stop" value="1" id="sw_bcs"
-                   {% if config.battery_charge_stop %}checked{% endif %}>
-            <label class="form-check-label" for="sw_bcs">Battery charging stopped</label>
-          </div>
-          <div class="text-secondary small ms-4 mt-1">Alert when battery stops mid-charge</div>
+        <div class="text-end flex-shrink-0">
+          {% if config.spike_status == "spike" %}
+            <span class="badge bg-danger">SPIKE</span>
+          {% elif config.spike_status == "potential" %}
+            <span class="badge bg-warning text-dark">potential</span>
+          {% else %}
+            <span class="badge badge-off">none</span>
+          {% endif %}
         </div>
+      </div>
 
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch">
+      {# Cheap window #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
             <input class="form-check-input" type="checkbox" name="alert_cheap" value="1" id="sw_cheap"
                    {% if config.cheap %}checked{% endif %}>
             <label class="form-check-label" for="sw_cheap">Cheap window</label>
           </div>
-          <div class="mt-2 ms-4 d-flex align-items-center gap-2">
+          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
             <span class="text-secondary small">Threshold:</span>
             <select name="alert_cheap_descriptor" class="form-select form-select-sm" style="max-width:160px">
               {% for d, label in descriptors.items() %}
@@ -123,14 +133,22 @@
             </select>
           </div>
         </div>
+        <div class="text-end flex-shrink-0">
+          <span class="badge {% if config.was_cheap %}badge-on{% else %}badge-off{% endif %}">
+            {{ "cheap now" if config.was_cheap else "not cheap" }}
+          </span>
+        </div>
+      </div>
 
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch">
+      {# High renewables #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
             <input class="form-check-input" type="checkbox" name="alert_renewables" value="1" id="sw_ren"
                    {% if config.renewables %}checked{% endif %}>
             <label class="form-check-label" for="sw_ren">High renewables</label>
           </div>
-          <div class="mt-2 ms-4 d-flex align-items-center gap-2">
+          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
             <span class="text-secondary small">Threshold:</span>
             <input type="number" name="alert_renewables_pct" class="form-control form-control-sm"
                    style="max-width:75px" step="5" min="0" max="100"
@@ -138,14 +156,39 @@
             <span class="text-secondary small">%</span>
           </div>
         </div>
+        <div class="text-end flex-shrink-0">
+          <span class="badge {% if config.was_green %}badge-on{% else %}badge-off{% endif %}">
+            {{ "green now" if config.was_green else "not green" }}
+          </span>
+        </div>
+      </div>
 
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch">
+      {# Battery charging stopped #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_battery_charge_stop" value="1" id="sw_bcs"
+                   {% if config.battery_charge_stop %}checked{% endif %}>
+            <label class="form-check-label" for="sw_bcs">Battery charging stopped</label>
+          </div>
+          <div class="text-secondary small ms-4">Alert when battery stops mid-charge</div>
+        </div>
+        <div class="text-end flex-shrink-0">
+          <span class="badge {% if config.was_charging %}badge-on{% else %}badge-off{% endif %}">
+            {{ "charging" if config.was_charging else "not charging" }}
+          </span>
+        </div>
+      </div>
+
+      {# Daily summary #}
+      <div class="alert-row d-flex align-items-start gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
             <input class="form-check-input" type="checkbox" name="alert_daily_summary" value="1" id="sw_daily"
                    {% if config.daily_summary %}checked{% endif %}>
             <label class="form-check-label" for="sw_daily">Daily summary</label>
           </div>
-          <div class="mt-2 ms-4 d-flex align-items-center gap-2">
+          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
             <span class="text-secondary small">At:</span>
             <input type="number" name="daily_summary_hour" class="form-control form-control-sm"
                    style="max-width:70px" step="1" min="0" max="23"
@@ -153,64 +196,22 @@
             <span class="text-secondary small">:00 NEM</span>
           </div>
         </div>
-
-        <div class="col-12 col-md-6">
-          <label class="form-label small">Poll interval</label>
-          <div class="d-flex align-items-center gap-2">
-            <input type="number" name="poll_interval_seconds" class="form-control form-control-sm"
-                   style="max-width:90px" step="60" min="60"
-                   value="{{ config.poll_interval }}">
-            <span class="text-secondary small">seconds</span>
-          </div>
-        </div>
-
       </div>
+
+      {# Poll interval #}
+      <div class="d-flex align-items-center gap-2 mt-3 pt-2" style="border-top:1px solid #0f3460">
+        <span class="text-secondary small">Poll every</span>
+        <input type="number" name="poll_interval_seconds" class="form-control form-control-sm"
+               style="max-width:90px" step="60" min="60"
+               value="{{ config.poll_interval }}">
+        <span class="text-secondary small">seconds</span>
+      </div>
+
       <div class="mt-3">
         <button type="submit" class="btn btn-sm btn-info">Save alert settings</button>
       </div>
     </div>
   </form>
-
-  {# ── Current state ── #}
-  <div class="card mb-3 p-3">
-    <div class="card-title mb-3">Current State</div>
-    <table class="table table-dark table-sm table-borderless mb-0">
-      <tbody>
-        <tr>
-          <td class="text-secondary">Last poll</td>
-          <td>{{ config.last_poll[:19]|replace("T"," ") if config.last_poll != "never" else "not yet" }}</td>
-        </tr>
-        <tr>
-          <td class="text-secondary">Spike status</td>
-          <td>
-            {% if config.spike_status == "spike" %}
-              <span class="badge bg-danger">SPIKE</span>
-            {% elif config.spike_status == "potential" %}
-              <span class="badge bg-warning text-dark">potential</span>
-            {% else %}
-              <span class="badge badge-off">none</span>
-            {% endif %}
-          </td>
-        </tr>
-        <tr>
-          <td class="text-secondary">In cheap window</td>
-          <td><span class="badge {% if config.was_cheap %}badge-on{% else %}badge-off{% endif %}">
-            {{ "yes" if config.was_cheap else "no" }}</span></td>
-        </tr>
-        <tr>
-          <td class="text-secondary">High renewables</td>
-          <td><span class="badge {% if config.was_green %}badge-on{% else %}badge-off{% endif %}">
-            {{ "yes" if config.was_green else "no" }}</span></td>
-        </tr>
-        <tr>
-          <td class="text-secondary">Battery charging</td>
-          <td><span class="badge {% if config.was_charging %}badge-on{% else %}badge-off{% endif %}">
-            {{ "yes" if config.was_charging else "no" }}</span></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
 
 </div>
 
