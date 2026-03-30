@@ -142,13 +142,18 @@
       </div>
     </div>
 
-    {# Solar — prefer FOX ESS generationPower (Fronius AC-coupled), fall back to Fronius local API #}
+    {# Solar — derive kW from energy balance; daily kWh from Fronius local API #}
     <div class="col-6 col-md-2">
       <div class="card h-100 p-3">
         <div class="card-title mb-2">Solar</div>
-        {% if foxess and foxess.generationPower is not none %}
-          {% set gen_kw = foxess.generationPower %}
-          <div class="stat-value" style="color:#ffeb3b">{{ gen_kw|round(1) }} <span class="price-unit">kW</span></div>
+        {% if foxess %}
+          {% set _bc = foxess.batChargePower or 0 %}
+          {% set _bd = foxess.batDischargePower or 0 %}
+          {% set _gi = foxess.gridConsumptionPower or 0 %}
+          {% set _go = foxess.feedinPower or 0 %}
+          {% set _ld = foxess.loadsPower or 0 %}
+          {% set _sol = [_ld + _go + _bc - _gi - _bd, 0] | max %}
+          <div class="stat-value" style="color:#ffeb3b">{{ _sol|round(1) }} <span class="price-unit">kW</span></div>
           <div class="stat-label mt-1">generating</div>
           {% if solar and solar.e_day_wh %}
             <div class="mt-2 text-secondary small">{{ (solar.e_day_wh / 1000)|round(1) }} kWh today</div>
@@ -365,17 +370,19 @@
       <div class="card p-3 h-100">
         <div class="card-title mb-3">Power Flow — right now</div>
         {% if foxess %}
-          {% set gen   = foxess.generationPower or 0 %}
-          {% set bat_c = foxess.batChargePower or 0 %}
-          {% set bat_d = foxess.batDischargePower or 0 %}
-          {% set load  = foxess.loadsPower or 0 %}
+          {% set bat_c    = foxess.batChargePower or 0 %}
+          {% set bat_d    = foxess.batDischargePower or 0 %}
+          {% set load     = foxess.loadsPower or 0 %}
           {% set grid_in  = foxess.gridConsumptionPower or 0 %}
           {% set grid_out = foxess.feedinPower or 0 %}
+          {# Derive solar from energy balance: sources = sinks
+             solar + grid_in + bat_d = load + grid_out + bat_c  #}
+          {% set solar_kw = [load + grid_out + bat_c - grid_in - bat_d, 0] | max %}
           <div class="row text-center g-2">
             <div class="col-4">
               <div class="p-2 rounded" style="background:#1e3a1e">
                 <div class="small text-secondary">Solar</div>
-                <div class="fw-bold" style="color:#ffeb3b">{{ gen|round(2) }} kW</div>
+                <div class="fw-bold" style="color:#ffeb3b">{{ solar_kw|round(2) }} kW</div>
                 <div class="small text-secondary mt-1">via Fronius</div>
               </div>
             </div>
