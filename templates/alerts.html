@@ -82,24 +82,66 @@
         </span>
       </div>
 
-      {# Price spike #}
+      {# Battery charging stopped #}
       <div class="alert-row d-flex align-items-start justify-content-between gap-3">
         <div class="flex-grow-1">
           <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_spike" value="1" id="sw_spike"
-                   {% if config.spike %}checked{% endif %}>
-            <label class="form-check-label" for="sw_spike">Price spike</label>
+            <input class="form-check-input" type="checkbox" name="alert_battery_charge_stop" value="1" id="sw_bcs"
+                   {% if config.battery_charge_stop %}checked{% endif %}>
+            <label class="form-check-label" for="sw_bcs">Battery charging stopped</label>
           </div>
-          <div class="text-secondary small ms-4">Alert when a spike starts or clears</div>
+          <div class="text-secondary small ms-4">Alert when battery stops mid-charge</div>
         </div>
         <div class="text-end flex-shrink-0">
-          {% if config.spike_status == "spike" %}
-            <span class="badge bg-danger">SPIKE</span>
-          {% elif config.spike_status == "potential" %}
-            <span class="badge bg-warning text-dark">potential</span>
-          {% else %}
-            <span class="badge badge-off">none</span>
-          {% endif %}
+          <span class="badge {% if config.was_charging %}badge-on{% else %}badge-off{% endif %}">
+            {{ "charging" if config.was_charging else "not charging" }}
+          </span>
+        </div>
+      </div>
+
+      {# Battery full #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_battery_full" value="1" id="sw_full"
+                   {% if config.battery_full %}checked{% endif %}>
+            <label class="form-check-label" for="sw_full">Battery full</label>
+          </div>
+          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
+            <span class="text-secondary small">At:</span>
+            <input type="number" name="alert_battery_full_pct" class="form-control form-control-sm"
+                   style="max-width:75px" step="5" min="50" max="100"
+                   value="{{ config.battery_full_pct|int }}">
+            <span class="text-secondary small">%</span>
+          </div>
+        </div>
+        <div class="text-end flex-shrink-0">
+          <span class="badge {% if config.was_battery_full %}badge-on{% else %}badge-off{% endif %}">
+            {{ "full" if config.was_battery_full else "not full" }}
+          </span>
+        </div>
+      </div>
+
+      {# Battery SOC low #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_soc_low" value="1" id="sw_soc"
+                   {% if config.soc_low %}checked{% endif %}>
+            <label class="form-check-label" for="sw_soc">Battery SOC low</label>
+          </div>
+          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
+            <span class="text-secondary small">Below:</span>
+            <input type="number" name="alert_soc_low_pct" class="form-control form-control-sm"
+                   style="max-width:75px" step="5" min="5" max="50"
+                   value="{{ config.soc_low_pct|int }}">
+            <span class="text-secondary small">%</span>
+          </div>
+        </div>
+        <div class="text-end flex-shrink-0">
+          <span class="badge {% if config.was_soc_low %}badge-on{% else %}badge-off{% endif %}">
+            {{ "low now" if config.was_soc_low else "ok" }}
+          </span>
         </div>
       </div>
 
@@ -127,63 +169,6 @@
         </div>
       </div>
 
-      {# High renewables #}
-      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
-        <div class="flex-grow-1">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_renewables" value="1" id="sw_ren"
-                   {% if config.renewables %}checked{% endif %}>
-            <label class="form-check-label" for="sw_ren">High renewables</label>
-          </div>
-          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
-            <span class="text-secondary small">Threshold:</span>
-            <input type="number" name="alert_renewables_pct" class="form-control form-control-sm"
-                   style="max-width:75px" step="5" min="0" max="100"
-                   value="{{ config.renewables_pct|int }}">
-            <span class="text-secondary small">%</span>
-          </div>
-        </div>
-        <div class="text-end flex-shrink-0">
-          <span class="badge {% if config.was_green %}badge-on{% else %}badge-off{% endif %}">
-            {{ "green now" if config.was_green else "not green" }}
-          </span>
-        </div>
-      </div>
-
-      {# Battery charging stopped #}
-      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
-        <div class="flex-grow-1">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_battery_charge_stop" value="1" id="sw_bcs"
-                   {% if config.battery_charge_stop %}checked{% endif %}>
-            <label class="form-check-label" for="sw_bcs">Battery charging stopped</label>
-          </div>
-          <div class="text-secondary small ms-4">Alert when battery stops mid-charge</div>
-        </div>
-        <div class="text-end flex-shrink-0">
-          <span class="badge {% if config.was_charging %}badge-on{% else %}badge-off{% endif %}">
-            {{ "charging" if config.was_charging else "not charging" }}
-          </span>
-        </div>
-      </div>
-
-      {# Negative price #}
-      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
-        <div class="flex-grow-1">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_negative_price" value="1" id="sw_neg"
-                   {% if config.negative_price %}checked{% endif %}>
-            <label class="form-check-label" for="sw_neg">Negative price</label>
-          </div>
-          <div class="text-secondary small ms-4">Alert when price goes below 0¢ — you're paid to consume</div>
-        </div>
-        <div class="text-end flex-shrink-0">
-          <span class="badge {% if config.was_negative %}badge-on{% else %}badge-off{% endif %}">
-            {{ "negative now" if config.was_negative else "not negative" }}
-          </span>
-        </div>
-      </div>
-
       {# Feed-in spike #}
       <div class="alert-row d-flex align-items-start justify-content-between gap-3">
         <div class="flex-grow-1">
@@ -207,6 +192,67 @@
         </div>
       </div>
 
+      {# High renewables #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_renewables" value="1" id="sw_ren"
+                   {% if config.renewables %}checked{% endif %}>
+            <label class="form-check-label" for="sw_ren">High renewables</label>
+          </div>
+          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
+            <span class="text-secondary small">Threshold:</span>
+            <input type="number" name="alert_renewables_pct" class="form-control form-control-sm"
+                   style="max-width:75px" step="5" min="0" max="100"
+                   value="{{ config.renewables_pct|int }}">
+            <span class="text-secondary small">%</span>
+          </div>
+        </div>
+        <div class="text-end flex-shrink-0">
+          <span class="badge {% if config.was_green %}badge-on{% else %}badge-off{% endif %}">
+            {{ "green now" if config.was_green else "not green" }}
+          </span>
+        </div>
+      </div>
+
+      {# Negative price #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_negative_price" value="1" id="sw_neg"
+                   {% if config.negative_price %}checked{% endif %}>
+            <label class="form-check-label" for="sw_neg">Negative price</label>
+          </div>
+          <div class="text-secondary small ms-4">Alert when price goes below 0¢ — you're paid to consume</div>
+        </div>
+        <div class="text-end flex-shrink-0">
+          <span class="badge {% if config.was_negative %}badge-on{% else %}badge-off{% endif %}">
+            {{ "negative now" if config.was_negative else "not negative" }}
+          </span>
+        </div>
+      </div>
+
+      {# Price spike #}
+      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
+        <div class="flex-grow-1">
+          <div class="form-check form-switch mb-1">
+            <input class="form-check-input" type="checkbox" name="alert_spike" value="1" id="sw_spike"
+                   {% if config.spike %}checked{% endif %}>
+            <label class="form-check-label" for="sw_spike">Price spike</label>
+          </div>
+          <div class="text-secondary small ms-4">Alert when a spike starts or clears</div>
+        </div>
+        <div class="text-end flex-shrink-0">
+          {% if config.spike_status == "spike" %}
+            <span class="badge bg-danger">SPIKE</span>
+          {% elif config.spike_status == "potential" %}
+            <span class="badge bg-warning text-dark">potential</span>
+          {% else %}
+            <span class="badge badge-off">none</span>
+          {% endif %}
+        </div>
+      </div>
+
       {# Spike incoming #}
       <div class="alert-row d-flex align-items-start justify-content-between gap-3">
         <div class="flex-grow-1">
@@ -225,52 +271,6 @@
         </div>
         <div class="text-end flex-shrink-0">
           <span class="badge badge-off">forecast</span>
-        </div>
-      </div>
-
-      {# SOC low #}
-      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
-        <div class="flex-grow-1">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_soc_low" value="1" id="sw_soc"
-                   {% if config.soc_low %}checked{% endif %}>
-            <label class="form-check-label" for="sw_soc">Battery SOC low</label>
-          </div>
-          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
-            <span class="text-secondary small">Below:</span>
-            <input type="number" name="alert_soc_low_pct" class="form-control form-control-sm"
-                   style="max-width:75px" step="5" min="5" max="50"
-                   value="{{ config.soc_low_pct|int }}">
-            <span class="text-secondary small">%</span>
-          </div>
-        </div>
-        <div class="text-end flex-shrink-0">
-          <span class="badge {% if config.was_soc_low %}badge-on{% else %}badge-off{% endif %}">
-            {{ "low now" if config.was_soc_low else "ok" }}
-          </span>
-        </div>
-      </div>
-
-      {# Battery full #}
-      <div class="alert-row d-flex align-items-start justify-content-between gap-3">
-        <div class="flex-grow-1">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_battery_full" value="1" id="sw_full"
-                   {% if config.battery_full %}checked{% endif %}>
-            <label class="form-check-label" for="sw_full">Battery full</label>
-          </div>
-          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
-            <span class="text-secondary small">At:</span>
-            <input type="number" name="alert_battery_full_pct" class="form-control form-control-sm"
-                   style="max-width:75px" step="5" min="50" max="100"
-                   value="{{ config.battery_full_pct|int }}">
-            <span class="text-secondary small">%</span>
-          </div>
-        </div>
-        <div class="text-end flex-shrink-0">
-          <span class="badge {% if config.was_battery_full %}badge-on{% else %}badge-off{% endif %}">
-            {{ "full" if config.was_battery_full else "not full" }}
-          </span>
         </div>
       </div>
 
