@@ -228,6 +228,23 @@ def dashboard():
         solar, s5 = _ensure_fresh("solar", get_power_flow_safe)
         data_stale = any([s1, s2, s3, s4, s5])
 
+        # Solar offline detection — daytime in AEST (QLD, UTC+10) with near-zero generation
+        from datetime import timezone, timedelta as _td
+        _aest = timezone(_td(hours=10))
+        _hour = datetime.now(_aest).hour
+        _is_daytime = 6 <= _hour < 20
+        _sol_kw = 0.0
+        if foxess:
+            _bc = foxess.get("batChargePower", 0) or 0
+            _bd = foxess.get("batDischargePower", 0) or 0
+            _gi = foxess.get("gridConsumptionPower", 0) or 0
+            _go = foxess.get("feedinPower", 0) or 0
+            _ld = foxess.get("loadsPower", 0) or 0
+            _sol_kw = max(_ld + _go + _bc - _gi - _bd, 0)
+        elif solar and solar.get("p_pv_w") is not None:
+            _sol_kw = (solar["p_pv_w"] or 0) / 1000
+        solar_offline = _is_daytime and _sol_kw < 0.1
+
         hw = _hw_from_prefs(prefs)
         analysis = analyse(
             current_interval=current,
@@ -265,6 +282,7 @@ def dashboard():
             ev_target=ev_target,
             last_poll=last_poll,
             solar=solar,
+            solar_offline=solar_offline,
             foxess=foxess,
             usage_daily=usage_daily,
             signal_configured=is_configured(),
@@ -308,15 +326,24 @@ def alerts_page():
 
         elif action == "save_alerts":
             prefs.update({
-                "alert_spike":              _bool("alert_spike"),
-                "alert_cheap":              _bool("alert_cheap"),
-                "alert_cheap_descriptor":   request.form.get("alert_cheap_descriptor", "extremelyLow"),
-                "alert_renewables":         _bool("alert_renewables"),
-                "alert_renewables_pct":     _float("alert_renewables_pct", 80.0),
-                "alert_battery_charge_stop": _bool("alert_battery_charge_stop"),
-                "alert_daily_summary":      _bool("alert_daily_summary"),
-                "daily_summary_hour":       _int("daily_summary_hour", 7),
-                "poll_interval_seconds":    _int("poll_interval_seconds", 300),
+                "alert_spike":                    _bool("alert_spike"),
+                "alert_cheap":                    _bool("alert_cheap"),
+                "alert_cheap_descriptor":         request.form.get("alert_cheap_descriptor", "extremelyLow"),
+                "alert_renewables":               _bool("alert_renewables"),
+                "alert_renewables_pct":           _float("alert_renewables_pct", 80.0),
+                "alert_battery_charge_stop":      _bool("alert_battery_charge_stop"),
+                "alert_negative_price":           _bool("alert_negative_price"),
+                "alert_feedin_spike":             _bool("alert_feedin_spike"),
+                "alert_feedin_spike_threshold":   _float("alert_feedin_spike_threshold", 30.0),
+                "alert_spike_incoming":           _bool("alert_spike_incoming"),
+                "alert_spike_incoming_minutes":   _int("alert_spike_incoming_minutes", 30),
+                "alert_soc_low":                  _bool("alert_soc_low"),
+                "alert_soc_low_pct":              _float("alert_soc_low_pct", 20.0),
+                "alert_battery_full":             _bool("alert_battery_full"),
+                "alert_battery_full_pct":         _float("alert_battery_full_pct", 95.0),
+                "alert_daily_summary":            _bool("alert_daily_summary"),
+                "daily_summary_hour":             _int("daily_summary_hour", 7),
+                "poll_interval_seconds":          _int("poll_interval_seconds", 300),
             })
             db.set_preferences(current_user.id, prefs)
             msg = "Alert settings saved."
@@ -324,23 +351,36 @@ def alerts_page():
     notify_method = "ntfy" if prefs.get("ntfy_topic") else get_method()
 
     alert_config = {
-        "signal_configured":  is_configured(),
-        "notify_method":      notify_method,
-        "ntfy_topic":         prefs.get("ntfy_topic", ""),
-        "spike":              prefs.get("alert_spike", True),
-        "cheap":              prefs.get("alert_cheap", True),
-        "cheap_desc":         prefs.get("alert_cheap_descriptor", "extremelyLow"),
-        "renewables":         prefs.get("alert_renewables", True),
-        "renewables_pct":     prefs.get("alert_renewables_pct", 80),
-        "battery_charge_stop": prefs.get("alert_battery_charge_stop", True),
-        "daily_summary":      prefs.get("alert_daily_summary", True),
-        "daily_hour":         prefs.get("daily_summary_hour", 7),
-        "poll_interval":      prefs.get("poll_interval_seconds", 300),
-        "last_poll":          state.get("last_poll", "never"),
-        "spike_status":       state.get("spike_status", "none"),
-        "was_cheap":          state.get("was_cheap", False),
-        "was_green":          state.get("was_green", False),
-        "was_charging":       state.get("was_charging", False),
+        "signal_configured":          is_configured(),
+        "notify_method":              notify_method,
+        "ntfy_topic":                 prefs.get("ntfy_topic", ""),
+        "spike":                      prefs.get("alert_spike", True),
+        "cheap":                      prefs.get("alert_cheap", True),
+        "cheap_desc":                 prefs.get("alert_cheap_descriptor", "extremelyLow"),
+        "renewables":                 prefs.get("alert_renewables", True),
+        "renewables_pct":             prefs.get("alert_renewables_pct", 80),
+        "battery_charge_stop":        prefs.get("alert_battery_charge_stop", True),
+        "negative_price":             prefs.get("alert_negative_price", True),
+        "feedin_spike":               prefs.get("alert_feedin_spike", True),
+        "feedin_spike_threshold":     prefs.get("alert_feedin_spike_threshold", 30.0),
+        "spike_incoming":             prefs.get("alert_spike_incoming", True),
+        "spike_incoming_minutes":     prefs.get("alert_spike_incoming_minutes", 30),
+        "soc_low":                    prefs.get("alert_soc_low", True),
+        "soc_low_pct":                prefs.get("alert_soc_low_pct", 20.0),
+        "battery_full":               prefs.get("alert_battery_full", True),
+        "battery_full_pct":           prefs.get("alert_battery_full_pct", 95.0),
+        "daily_summary":              prefs.get("alert_daily_summary", True),
+        "daily_hour":                 prefs.get("daily_summary_hour", 7),
+        "poll_interval":              prefs.get("poll_interval_seconds", 300),
+        "last_poll":                  state.get("last_poll", "never"),
+        "spike_status":               state.get("spike_status", "none"),
+        "was_cheap":                  state.get("was_cheap", False),
+        "was_green":                  state.get("was_green", False),
+        "was_charging":               state.get("was_charging", False),
+        "was_negative":               state.get("was_negative", False),
+        "was_feedin_spike":           state.get("was_feedin_spike", False),
+        "was_soc_low":                state.get("was_soc_low", False),
+        "was_battery_full":           state.get("was_battery_full", False),
     }
 
     return render_template("alerts.html", config=alert_config, msg=msg,
