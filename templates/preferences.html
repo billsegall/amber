@@ -7,6 +7,19 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="/static/theme.css">
   <link rel="icon" href="/static/favicon.ico">
+  <style>
+    .pref-row {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0.35rem 0; border-bottom: 1px solid #0f3460;
+      font-size: 0.82rem; flex-wrap: wrap;
+    }
+    .pref-row:last-child { border-bottom: none; }
+    .pref-label { color: #8aa0b8; min-width: 140px; flex-shrink: 0; }
+    .pref-row .form-control-sm, .pref-row .form-select-sm {
+      font-size: 0.78rem; padding: 0.15rem 0.4rem;
+    }
+    .section-divider { border-color: #0f3460; margin: 1rem 0; }
+  </style>
 </head>
 <body>
 
@@ -29,113 +42,104 @@
   </div>
 </nav>
 
-<div class="container py-4" style="max-width:720px">
-  <h5 class="mb-4">Preferences</h5>
+<div class="container py-2" style="max-width:600px">
 
-  {% if errors %}
-    {% for e in errors %}
-      <div class="alert alert-danger py-2 small">{{ e }}</div>
-    {% endfor %}
-  {% endif %}
-  {% if success %}
-    {% for s in success %}
-      <div class="alert alert-success py-2 small">{{ s }}</div>
-    {% endfor %}
-  {% endif %}
+  {% for e in errors %}<div class="alert alert-danger py-1 small mb-2">{{ e }}</div>{% endfor %}
+  {% for s in success %}<div class="alert alert-success py-1 small mb-2">{{ s }}</div>{% endfor %}
 
-  {# ── Settings form ── #}
   <form method="POST">
     <input type="hidden" name="action" value="save_prefs">
 
     {# Location #}
-    <div class="card p-3 mb-3">
-      <div class="card-title mb-3">Location</div>
-      <div class="row g-3">
-        <div class="col-auto">
-          <label class="form-label text-secondary small">State</label>
-          <select name="location_state" class="form-select form-select-sm" style="width:90px">
-            {% for s in ['QLD','NSW','VIC','SA','WA','TAS','NT','ACT'] %}
-              <option value="{{ s }}" {% if prefs.location_state == s %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-          </select>
-        </div>
+    <div class="card p-2 mb-2">
+      <div class="card-title mb-1">Location</div>
+      <div class="pref-row">
+        <span class="pref-label">State</span>
+        <select name="location_state" class="form-select form-select-sm" style="width:80px">
+          {% for s in ['QLD','NSW','VIC','SA','WA','TAS','NT','ACT'] %}
+            <option value="{{ s }}" {% if prefs.location_state == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
       </div>
     </div>
 
     {# Battery #}
-    <div class="card p-3 mb-3">
-      <div class="card-title mb-3">Home Battery</div>
-      <div class="row g-3">
-        <div class="col-6 col-md-3">
-          <label class="form-label text-secondary small">Capacity (kWh)</label>
-          <input type="number" name="battery_capacity_kwh" class="form-control form-control-sm"
-                 step="0.1" value="{{ prefs.battery_capacity_kwh }}">
-        </div>
-        <div class="col-6 col-md-3">
-          <label class="form-label text-secondary small">Min SOC (%)</label>
-          <input type="number" name="battery_min_soc_pct" class="form-control form-control-sm"
-                 step="1" min="0" max="50" value="{{ prefs.battery_min_soc_pct|int }}">
-        </div>
-        <div class="col-6 col-md-3">
-          <label class="form-label text-secondary small">Max charge (kW)</label>
-          <input type="number" name="battery_max_charge_kw" class="form-control form-control-sm"
-                 step="0.5" value="{{ prefs.battery_max_charge_kw }}">
-        </div>
-        <div class="col-6 col-md-3">
-          <label class="form-label text-secondary small">Max discharge (kW)</label>
-          <input type="number" name="battery_max_discharge_kw" class="form-control form-control-sm"
-                 step="0.5" value="{{ prefs.battery_max_discharge_kw }}">
-        </div>
+    <div class="card p-2 mb-2">
+      <div class="card-title mb-1">Home Battery</div>
+      <div class="pref-row">
+        <span class="pref-label">Capacity</span>
+        <input type="number" name="battery_capacity_kwh" class="form-control form-control-sm"
+               style="width:80px" step="0.1" value="{{ prefs.battery_capacity_kwh }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">kWh</span>
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">Min SOC</span>
+        <input type="number" name="battery_min_soc_pct" class="form-control form-control-sm"
+               style="width:70px" step="1" min="0" max="50" value="{{ prefs.battery_min_soc_pct|int }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">%</span>
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">Max charge</span>
+        <input type="number" name="battery_max_charge_kw" class="form-control form-control-sm"
+               style="width:70px" step="0.5" value="{{ prefs.battery_max_charge_kw }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">kW</span>
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">Max discharge</span>
+        <input type="number" name="battery_max_discharge_kw" class="form-control form-control-sm"
+               style="width:70px" step="0.5" value="{{ prefs.battery_max_discharge_kw }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">kW</span>
       </div>
     </div>
 
     {# EV #}
-    <div class="card p-3 mb-3">
-      <div class="card-title mb-3">Electric Vehicle</div>
-      <div class="row g-3">
-        <div class="col-6 col-md-4">
-          <label class="form-label text-secondary small">Battery capacity (kWh)</label>
-          <input type="number" name="ev_capacity_kwh" class="form-control form-control-sm"
-                 step="1" value="{{ prefs.ev_capacity_kwh|int }}">
-        </div>
-        <div class="col-6 col-md-4">
-          <label class="form-label text-secondary small">Charge rate (kW)</label>
-          <input type="number" name="ev_charge_kw" class="form-control form-control-sm"
-                 step="0.5" value="{{ prefs.ev_charge_kw }}">
-        </div>
-        <div class="col-6 col-md-4">
-          <label class="form-label text-secondary small">Default target SOC (%)</label>
-          <input type="number" name="ev_target_soc" class="form-control form-control-sm"
-                 step="1" min="10" max="100" value="{{ prefs.ev_target_soc|int }}">
-        </div>
+    <div class="card p-2 mb-2">
+      <div class="card-title mb-1">Electric Vehicle</div>
+      <div class="pref-row">
+        <span class="pref-label">Capacity</span>
+        <input type="number" name="ev_capacity_kwh" class="form-control form-control-sm"
+               style="width:80px" step="1" value="{{ prefs.ev_capacity_kwh|int }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">kWh</span>
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">Charge rate</span>
+        <input type="number" name="ev_charge_kw" class="form-control form-control-sm"
+               style="width:70px" step="0.5" value="{{ prefs.ev_charge_kw }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">kW</span>
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">Default target SOC</span>
+        <input type="number" name="ev_target_soc" class="form-control form-control-sm"
+               style="width:70px" step="1" min="10" max="100" value="{{ prefs.ev_target_soc|int }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">%</span>
       </div>
     </div>
 
-    <button type="submit" class="btn btn-info">Save preferences</button>
+    <button type="submit" class="btn btn-sm btn-info">Save preferences</button>
   </form>
 
   {# ── Password change ── #}
   <hr class="section-divider">
-  <div class="card p-3 mb-3">
-    <div class="card-title mb-3">Change Password</div>
-    <form method="POST" style="max-width:400px">
+  <div class="card p-2 mb-2">
+    <div class="card-title mb-1">Change Password</div>
+    <form method="POST" style="max-width:360px">
       <input type="hidden" name="action" value="change_password">
-      <div class="mb-3">
-        <label class="form-label text-secondary small">Current password</label>
+      <div class="pref-row">
+        <span class="pref-label">Current password</span>
         <input type="password" name="current_password" class="form-control form-control-sm"
-               autocomplete="current-password">
+               style="flex:1" autocomplete="current-password">
       </div>
-      <div class="mb-3">
-        <label class="form-label text-secondary small">New password</label>
+      <div class="pref-row">
+        <span class="pref-label">New password</span>
         <input type="password" name="new_password" class="form-control form-control-sm"
-               autocomplete="new-password" minlength="8">
+               style="flex:1" autocomplete="new-password" minlength="8">
       </div>
-      <div class="mb-3">
-        <label class="form-label text-secondary small">Confirm new password</label>
+      <div class="pref-row">
+        <span class="pref-label">Confirm</span>
         <input type="password" name="confirm_password" class="form-control form-control-sm"
-               autocomplete="new-password">
+               style="flex:1" autocomplete="new-password">
       </div>
-      <button type="submit" class="btn btn-sm btn-warning">Change password</button>
+      <button type="submit" class="btn btn-sm btn-warning mt-2">Change password</button>
     </form>
   </div>
 
