@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import time
 from datetime import date, timedelta
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -63,6 +64,19 @@ DESCRIPTOR_LABELS = {
 DEFAULT_BATTERY_SOC = 50.0
 DEFAULT_EV_SOC      = 50.0
 DEFAULT_EV_TARGET   = 85.0
+
+# ── Simple TTL cache for dashboard API calls ──────────────────────────────────
+_cache: dict = {}
+_CACHE_TTL   = 60  # seconds
+
+
+def _cached(key: str, fn, *args, **kwargs):
+    entry = _cache.get(key)
+    if entry and (time.time() - entry["ts"]) < _CACHE_TTL:
+        return entry["val"]
+    val = fn(*args, **kwargs)
+    _cache[key] = {"ts": time.time(), "val": val}
+    return val
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -172,10 +186,10 @@ def dashboard():
 
         client  = get_client()
         site_id = get_site_id(client)
-        general    = client.get_current_prices(site_id, next_intervals=96, previous_intervals=24, channel_type="general")
-        feedin_iv  = client.get_current_prices(site_id, next_intervals=96, previous_intervals=24, channel_type="feedIn")
-        renewables = client.get_renewables(state=prefs.get("location_state", "QLD"),
-                                           next_intervals=96, previous_intervals=24)
+        loc = prefs.get("location_state", "QLD")
+        general    = _cached("general",    client.get_current_prices, site_id, next_intervals=96, previous_intervals=24, channel_type="general")
+        feedin_iv  = _cached("feedin",     client.get_current_prices, site_id, next_intervals=96, previous_intervals=24, channel_type="feedIn")
+        renewables = _cached(f"ren_{loc}", client.get_renewables, state=loc, next_intervals=96, previous_intervals=24)
 
         past, current, forecast         = _split_intervals(general)
         _, feedin_current, feedin_forecast = _split_intervals(feedin_iv)
@@ -207,7 +221,7 @@ def dashboard():
         try:
             end   = date.today()
             start = end - timedelta(days=6)
-            usage = client.get_usage(site_id, start, end)
+            usage = _cached("usage", client.get_usage, site_id, start, end)
         except Exception:
             usage = []
 
@@ -246,9 +260,41 @@ def alerts_page():
     state = _load_state()
     msg   = None
 
-    if request.method == "POST" and request.form.get("action") == "test":
-        ok  = send_notification("🔔 Amber test notification — everything is working!", title="Amber Test")
-        msg = "Test notification sent." if ok else "Notification not configured — set ntfy topic in Preferences."
+    if request.method == "POST":
+        action = request.form.get("action")
+
+        def _float(key, default):
+            try: return float(request.form.get(key, default))
+            except ValueError: return default
+        def _int(key, default):
+            try: return int(request.form.get(key, default))
+            except ValueError: return default
+        def _bool(key):
+            return request.form.get(key) == "1"
+
+        if action == "test":
+            ok  = send_notification("🔔 Amber test notification — everything is working!", title="Amber Test")
+            msg = "Test notification sent." if ok else "Notification not configured — set ntfy topic first."
+
+        elif action == "save_notify":
+            prefs["ntfy_topic"] = request.form.get("ntfy_topic", "").strip()
+            db.set_preferences(current_user.id, prefs)
+            msg = "Saved."
+
+        elif action == "save_alerts":
+            prefs.update({
+                "alert_spike":              _bool("alert_spike"),
+                "alert_cheap":              _bool("alert_cheap"),
+                "alert_cheap_descriptor":   request.form.get("alert_cheap_descriptor", "extremelyLow"),
+                "alert_renewables":         _bool("alert_renewables"),
+                "alert_renewables_pct":     _float("alert_renewables_pct", 80.0),
+                "alert_battery_charge_stop": _bool("alert_battery_charge_stop"),
+                "alert_daily_summary":      _bool("alert_daily_summary"),
+                "daily_summary_hour":       _int("daily_summary_hour", 7),
+                "poll_interval_seconds":    _int("poll_interval_seconds", 300),
+            })
+            db.set_preferences(current_user.id, prefs)
+            msg = "Alert settings saved."
 
     notify_method = "ntfy" if prefs.get("ntfy_topic") else get_method()
 
@@ -272,7 +318,8 @@ def alerts_page():
         "was_charging":       state.get("was_charging", False),
     }
 
-    return render_template("alerts.html", config=alert_config, msg=msg)
+    return render_template("alerts.html", config=alert_config, msg=msg,
+                           descriptors=DESCRIPTOR_LABELS)
 
 
 # ── Preferences page ──────────────────────────────────────────────────────────
@@ -305,15 +352,6 @@ def preferences():
                 "ev_charge_kw":             _float("ev_charge_kw", 7.0),
                 "ev_target_soc":            _float("ev_target_soc", 85.0),
                 "ntfy_topic":               request.form.get("ntfy_topic", "").strip(),
-                "alert_spike":              _bool("alert_spike"),
-                "alert_cheap":              _bool("alert_cheap"),
-                "alert_cheap_descriptor":   request.form.get("alert_cheap_descriptor", "extremelyLow"),
-                "alert_renewables":         _bool("alert_renewables"),
-                "alert_renewables_pct":     _float("alert_renewables_pct", 80.0),
-                "alert_battery_charge_stop": _bool("alert_battery_charge_stop"),
-                "alert_daily_summary":      _bool("alert_daily_summary"),
-                "daily_summary_hour":       _int("daily_summary_hour", 7),
-                "poll_interval_seconds":    _int("poll_interval_seconds", 300),
             })
             db.set_preferences(current_user.id, prefs)
             success.append("Preferences saved.")
@@ -333,9 +371,7 @@ def preferences():
                 db.set_password(current_user.id, new_pw)
                 success.append("Password changed successfully.")
 
-    return render_template("preferences.html", prefs=prefs, errors=errors, success=success,
-                           descriptors=list(DESCRIPTOR_LABELS.keys()),
-                           descriptor_labels=DESCRIPTOR_LABELS)
+    return render_template("preferences.html", prefs=prefs, errors=errors, success=success)
 
 
 # ── JSON API ──────────────────────────────────────────────────────────────────

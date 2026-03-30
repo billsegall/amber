@@ -88,12 +88,12 @@ On first run a default `admin` / `amber` account is created — log in and chang
 - **Daily summary** — 7am: price range, best charging windows, potential savings
 - Push notifications via **ntfy.sh** (primary) or Signal/CallMeBot (fallback)
 - Alerts page shows live state (spike/cheap/green/charging) and test button
+- All alert toggles and thresholds configurable directly on the Alerts page
 
 ### Preferences (`/preferences`)
-- All hardware config: battery capacity/SOC/charge rate, EV capacity/rate/target SOC
+- Hardware config: battery capacity/SOC/charge rate, EV capacity/rate/target SOC
 - Location/state (used for renewables data)
-- Notification: ntfy.sh topic, poll interval
-- All alert thresholds configurable via UI (no .env editing needed)
+- Notification: ntfy.sh topic
 - Password change
 
 ### JSON API

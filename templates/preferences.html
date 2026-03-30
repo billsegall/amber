@@ -57,9 +57,9 @@
     <div class="card p-3 mb-3">
       <div class="card-title mb-3">Location</div>
       <div class="row g-3">
-        <div class="col-6">
+        <div class="col-auto">
           <label class="form-label text-secondary small">State</label>
-          <select name="location_state" class="form-select form-select-sm">
+          <select name="location_state" class="form-select form-select-sm" style="width:90px">
             {% for s in ['QLD','NSW','VIC','SA','WA','TAS','NT','ACT'] %}
               <option value="{{ s }}" {% if prefs.location_state == s %}selected{% endif %}>{{ s }}</option>
             {% endfor %}
@@ -120,87 +120,11 @@
     {# Notifications #}
     <div class="card p-3 mb-3">
       <div class="card-title mb-3">Notifications</div>
-      <div class="mb-3">
+      <div class="mb-2">
         <label class="form-label text-secondary small">ntfy.sh topic</label>
         <input type="text" name="ntfy_topic" class="form-control form-control-sm"
                placeholder="e.g. amber-bill8" value="{{ prefs.ntfy_topic }}">
-        <div class="form-text text-secondary">Install the ntfy app and subscribe to this topic.</div>
-      </div>
-      <div class="mb-2">
-        <label class="form-label text-secondary small">Background poll interval (seconds)</label>
-        <input type="number" name="poll_interval_seconds" class="form-control form-control-sm"
-               step="60" min="60" value="{{ prefs.poll_interval_seconds }}">
-      </div>
-    </div>
-
-    {# Alerts #}
-    <div class="card p-3 mb-3">
-      <div class="card-title mb-3">Alerts</div>
-      <div class="row g-3">
-
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_spike" value="1" id="sw_spike"
-                   {% if prefs.alert_spike %}checked{% endif %}>
-            <label class="form-check-label" for="sw_spike">Price spike</label>
-          </div>
-          <div class="text-secondary small ms-4">Alert when a spike starts or clears</div>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_battery_charge_stop" value="1" id="sw_bcs"
-                   {% if prefs.alert_battery_charge_stop %}checked{% endif %}>
-            <label class="form-check-label" for="sw_bcs">Battery charging stopped</label>
-          </div>
-          <div class="text-secondary small ms-4">Alert when battery stops charging mid-session</div>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_cheap" value="1" id="sw_cheap"
-                   {% if prefs.alert_cheap %}checked{% endif %}>
-            <label class="form-check-label" for="sw_cheap">Cheap window</label>
-          </div>
-          <div class="mt-1 ms-4">
-            <select name="alert_cheap_descriptor" class="form-select form-select-sm" style="max-width:180px">
-              {% for d in descriptors %}
-                <option value="{{ d }}" {% if prefs.alert_cheap_descriptor == d %}selected{% endif %}>
-                  {{ descriptor_labels[d] }}
-                </option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_renewables" value="1" id="sw_ren"
-                   {% if prefs.alert_renewables %}checked{% endif %}>
-            <label class="form-check-label" for="sw_ren">High renewables</label>
-          </div>
-          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
-            <input type="number" name="alert_renewables_pct" class="form-control form-control-sm"
-                   style="max-width:80px" step="5" min="0" max="100"
-                   value="{{ prefs.alert_renewables_pct|int }}">
-            <span class="text-secondary small">% threshold</span>
-          </div>
-        </div>
-
-        <div class="col-12 col-md-6">
-          <div class="form-check form-switch mb-1">
-            <input class="form-check-input" type="checkbox" name="alert_daily_summary" value="1" id="sw_daily"
-                   {% if prefs.alert_daily_summary %}checked{% endif %}>
-            <label class="form-check-label" for="sw_daily">Daily summary</label>
-          </div>
-          <div class="mt-1 ms-4 d-flex align-items-center gap-2">
-            <input type="number" name="daily_summary_hour" class="form-control form-control-sm"
-                   style="max-width:70px" step="1" min="0" max="23"
-                   value="{{ prefs.daily_summary_hour }}">
-            <span class="text-secondary small">:00 NEM time</span>
-          </div>
-        </div>
-
+        <div class="form-text text-secondary">Install the ntfy app and subscribe to this topic. Alert settings are on the <a href="/alerts" class="text-secondary">Alerts</a> page.</div>
       </div>
     </div>
 
