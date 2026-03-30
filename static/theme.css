@@ -20,7 +20,7 @@ body  { background: #1a1a2e; color: #e0e0e0; }
 .form-control::placeholder { color: #6a8aaa; opacity: 1; }
 .form-label  { color: #c0cfe0; }
 .form-text   { color: #8aa0b8 !important; }
-.text-secondary { color: #8aa0b8 !important; }
+.text-secondary { color: #a8bdd0 !important; }
 
 /* Visible dropdown arrow on dark background */
 .form-select {
