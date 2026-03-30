@@ -9,14 +9,17 @@
   <link rel="icon" href="/static/favicon.ico">
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <style>
-    .price-big { font-size: 3.5rem; font-weight: 700; line-height: 1; }
-    .price-unit { font-size: 1rem; color: #a0b4d0; }
-    .badge-descriptor { font-size: 0.9rem; padding: 0.4em 0.8em; border-radius: 20px; }
-    .spike-banner { background: #d50000; color: #fff; text-align: center; padding: 0.5rem;
-                    font-weight: 700; font-size: 1.1rem; display: none; }
+    .price-big { font-size: 3rem; font-weight: 700; line-height: 1; }
+    .price-unit { font-size: 0.9rem; color: #a0b4d0; }
+    .badge-descriptor { font-size: 0.8rem; padding: 0.3em 0.7em; border-radius: 20px; }
+    .spike-banner { background: #d50000; color: #fff; text-align: center; padding: 0.35rem;
+                    font-weight: 700; font-size: 1rem; display: none; }
     .plotly-chart { width: 100%; }
-    .stat-label { font-size: 0.75rem; color: #a0b4d0; text-transform: uppercase; letter-spacing: 1px; }
-    .stat-value { font-size: 1.4rem; font-weight: 600; }
+    .stat-label { font-size: 0.7rem; color: #a0b4d0; text-transform: uppercase; letter-spacing: 1px; }
+    .stat-value { font-size: 1.2rem; font-weight: 600; }
+    .flow-box { padding: 0.3rem 0.4rem; border-radius: 4px; text-align: center; }
+    .flow-box .flow-label { font-size: 0.68rem; color: #8aa0b8; }
+    .flow-box .flow-val   { font-size: 0.95rem; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -57,50 +60,47 @@
   </div>
 </nav>
 
-<div class="container-fluid py-3">
+<div class="container-fluid py-2">
 
   {# ── Row 1: Current price + key stats ── #}
-  <div class="row g-3 mb-3">
+  <div class="row g-2 mb-2">
 
-    {# Current price card #}
+    {# Current price #}
     <div class="col-12 col-md-4">
-      <div class="card h-100 p-3">
-        <div class="card-title mb-2">Current Price</div>
+      <div class="card h-100 p-2">
+        <div class="card-title mb-1">Current Price</div>
         {% if current %}
           {% set color = descriptor_colors.get(current.descriptor, '#90a4ae') %}
           {% set label = descriptor_labels.get(current.descriptor, current.descriptor) %}
-          <div class="price-big" style="color: {{ color }}">
+          <div class="price-big" style="color:{{ color }}">
             {{ "%.1f"|format(current.perKwh) }}<span class="price-unit">¢/kWh</span>
           </div>
-          <div class="mt-2">
-            <span class="badge badge-descriptor" style="background:{{ color }}; color:#000">
-              {{ label }}
-            </span>
+          <div class="mt-1">
+            <span class="badge badge-descriptor" style="background:{{ color }};color:#000">{{ label }}</span>
             {% if current.spikeStatus != 'none' %}
               <span class="badge bg-danger ms-1">{{ current.spikeStatus|upper }}</span>
             {% endif %}
           </div>
-          <div class="mt-3 text-secondary small">
-            Spot: {{ "%.2f"|format(current.spotPerKwh) }}¢ &nbsp;|&nbsp;
-            Renewables: {{ current.renewables|round|int }}%
+          <div class="mt-2 text-secondary small">
+            Spot: {{ "%.2f"|format(current.spotPerKwh) }}¢ &nbsp;|&nbsp; Renewables: {{ current.renewables|round|int }}%
           </div>
         {% else %}
-          <div class="text-secondary">No current price data</div>
+          <div class="text-secondary small">No current price data</div>
         {% endif %}
       </div>
     </div>
 
-    {# Feed-in / export price #}
+    {# Feed-in rate #}
     <div class="col-6 col-md-2">
-      <div class="card h-100 p-3">
-        <div class="card-title mb-2">Feed-in Rate</div>
+      <div class="card h-100 p-2">
+        <div class="card-title mb-1">Feed-in</div>
         {% if feedin_current %}
           {% set fi_color = descriptor_colors.get(feedin_current.descriptor, '#90a4ae') %}
           <div class="stat-value" style="color:{{ fi_color }}">
-            {{ "%.1f"|format(feedin_current.perKwh) }}<span class="price-unit" style="font-size:0.8rem">¢</span>
+            {{ "%.1f"|format(feedin_current.perKwh) }}<span class="price-unit">¢</span>
           </div>
           <div class="stat-label mt-1">
-            <span class="badge" style="background:{{ fi_color }};color:#000;font-size:0.7rem">
+            <span class="badge" style="background:{{ fi_color }};color:#000;font-size:0.65rem">
               {{ descriptor_labels.get(feedin_current.descriptor, feedin_current.descriptor) }}
             </span>
           </div>
@@ -110,8 +110,8 @@
 
     {# Renewables #}
     <div class="col-6 col-md-2">
-      <div class="card h-100 p-3">
-        <div class="card-title mb-2">Renewables</div>
+      <div class="card h-100 p-2">
+        <div class="card-title mb-1">Renewables</div>
         {% if current %}
           <div class="stat-value" style="color:#00c853">{{ current.renewables|round|int }}%</div>
           <div class="stat-label mt-1">grid right now</div>
@@ -119,35 +119,34 @@
       </div>
     </div>
 
-    {# Battery / FOX ESS #}
+    {# Battery #}
     <div class="col-6 col-md-2">
-      <div class="card h-100 p-3">
-        <div class="card-title mb-2">Battery</div>
+      <div class="card h-100 p-2">
+        <div class="card-title mb-1">Battery</div>
         {% if foxess %}
           {% set soc = foxess.SoC %}
           {% set soc_color = '#00c853' if soc > 50 else ('#ff6d00' if soc > 20 else '#d50000') %}
           <div class="stat-value" style="color:{{ soc_color }}">{{ soc|int }}<span class="price-unit">%</span></div>
           {% if foxess.batChargePower > 0.05 %}
-            <div class="text-success small mt-1">↑ {{ foxess.batChargePower|round(1) }} kW charging</div>
+            <div class="text-success small mt-1">↑ {{ foxess.batChargePower|round(1) }} kW</div>
           {% elif foxess.batDischargePower > 0.05 %}
-            <div class="text-warning small mt-1">↓ {{ foxess.batDischargePower|round(1) }} kW discharging</div>
+            <div class="text-warning small mt-1">↓ {{ foxess.batDischargePower|round(1) }} kW</div>
           {% else %}
             <div class="text-secondary small mt-1">idle</div>
           {% endif %}
-          <div class="stat-label mt-2">live · FOX ESS</div>
+          <div class="stat-label mt-1">live · FOX ESS</div>
         {% else %}
-          <div class="stat-value text-secondary" style="font-size:1.2rem">{{ battery_soc|int }}%</div>
+          <div class="stat-value text-secondary">{{ battery_soc|int }}<span class="price-unit">%</span></div>
           <div class="stat-label mt-1">manual entry</div>
         {% endif %}
       </div>
     </div>
 
-    {# Solar — derive kW from energy balance; daily kWh from Fronius local API #}
+    {# Solar #}
     <div class="col-6 col-md-2">
-      <div class="card h-100 p-3" {% if solar_offline %}style="border-color:#ff6d00"{% endif %}>
-        <div class="card-title mb-2">
-          Solar
-          {% if solar_offline %}<span class="badge bg-warning text-dark ms-1" style="font-size:0.65rem">offline?</span>{% endif %}
+      <div class="card h-100 p-2" {% if solar_offline %}style="border-color:#ff6d00"{% endif %}>
+        <div class="card-title mb-1">
+          Solar{% if solar_offline %} <span class="badge bg-warning text-dark" style="font-size:0.6rem">offline?</span>{% endif %}
         </div>
         {% if foxess %}
           {% set _bc = foxess.batChargePower or 0 %}
@@ -156,57 +155,57 @@
           {% set _go = foxess.feedinPower or 0 %}
           {% set _ld = foxess.loadsPower or 0 %}
           {% set _sol = [_ld + _go + _bc - _gi - _bd, 0] | max %}
-          <div class="stat-value" style="color:#ffeb3b">{{ _sol|round(1) }} <span class="price-unit">kW</span></div>
+          <div class="stat-value" style="color:#ffeb3b">{{ _sol|round(1) }}<span class="price-unit"> kW</span></div>
           <div class="stat-label mt-1">generating</div>
           {% if solar and solar.e_day_wh %}
-            <div class="mt-2 text-secondary small">{{ (solar.e_day_wh / 1000)|round(1) }} kWh today</div>
+            <div class="text-secondary small mt-1">{{ (solar.e_day_wh/1000)|round(1) }} kWh today</div>
           {% endif %}
         {% elif solar and solar.p_pv_w is not none %}
-          <div class="stat-value" style="color:#ffeb3b">{{ (solar.p_pv_w / 1000)|round(1) }} <span class="price-unit">kW</span></div>
+          <div class="stat-value" style="color:#ffeb3b">{{ (solar.p_pv_w/1000)|round(1) }}<span class="price-unit"> kW</span></div>
           <div class="stat-label mt-1">generating</div>
           {% if solar.e_day_wh %}
-            <div class="mt-2 text-secondary small">{{ (solar.e_day_wh / 1000)|round(1) }} kWh today</div>
+            <div class="text-secondary small mt-1">{{ (solar.e_day_wh/1000)|round(1) }} kWh today</div>
           {% endif %}
         {% else %}
-          <div class="stat-value text-secondary" style="font-size:1.2rem">—</div>
+          <div class="stat-value text-secondary">—</div>
           <div class="stat-label mt-1">asleep / offline</div>
         {% endif %}
       </div>
     </div>
 
-    {# 24h price range preview #}
+    {# 24h range #}
     <div class="col-12 col-md-4">
-      <div class="card h-100 p-3">
-        <div class="card-title mb-2">24h Range</div>
+      <div class="card h-100 p-2">
+        <div class="card-title mb-1">24h Range</div>
         {% set s = analysis.stats_24h %}
         <div class="d-flex gap-3 align-items-end">
           <div>
             <div class="stat-label">Min</div>
-            <div class="stat-value" style="color:#00c853;font-size:1.6rem">{{ s.min }}¢</div>
+            <div class="stat-value" style="color:#00c853;font-size:1.4rem">{{ s.min }}¢</div>
           </div>
-          <div class="text-secondary" style="font-size:1.2rem;padding-bottom:4px">→</div>
+          <div class="text-secondary" style="padding-bottom:2px">→</div>
           <div>
             <div class="stat-label">Max</div>
-            <div class="stat-value" style="color:#ff6d00;font-size:1.6rem">{{ s.max }}¢</div>
+            <div class="stat-value" style="color:#ff6d00;font-size:1.4rem">{{ s.max }}¢</div>
           </div>
         </div>
-        <div class="mt-2 text-secondary small">Avg {{ s.avg }}¢ · current at {{ s.current_percentile|round|int }}th %ile</div>
+        <div class="mt-1 text-secondary small">Avg {{ s.avg }}¢ · current at {{ s.current_percentile|round|int }}th %ile</div>
       </div>
     </div>
 
   </div>
 
   {# ── Row 2: SOC inputs + Analysis ── #}
-  <div class="row g-3 mb-3">
+  <div class="row g-2 mb-2">
 
-    {# SOC input form #}
+    {# SOC inputs #}
     <div class="col-12 col-md-4">
-      <div class="card p-3 h-100">
-        <div class="card-title mb-3">State of Charge</div>
+      <div class="card p-2 h-100">
+        <div class="card-title mb-1">State of Charge</div>
         <form method="POST" action="/">
-          <div class="mb-3">
-            <label class="form-label text-secondary small">Battery SOC %
-              {% if foxess %}<span class="badge bg-success ms-1" style="font-size:0.6rem">live</span>{% endif %}
+          <div class="mb-1">
+            <label class="form-label text-secondary small mb-0">Battery SOC
+              {% if foxess %}<span class="badge bg-success ms-1" style="font-size:0.55rem">live</span>{% endif %}
             </label>
             <div class="input-group input-group-sm">
               <input type="number" name="battery_soc" class="form-control bg-dark text-light border-secondary"
@@ -215,39 +214,39 @@
               <span class="input-group-text bg-dark text-secondary border-secondary">%</span>
             </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label text-secondary small">EV SOC %</label>
+          <div class="mb-1">
+            <label class="form-label text-secondary small mb-0">EV SOC</label>
             <div class="input-group input-group-sm">
               <input type="number" name="ev_soc" class="form-control bg-dark text-light border-secondary"
                      min="0" max="100" step="1" value="{{ ev_soc|int }}">
               <span class="input-group-text bg-dark text-secondary border-secondary">%</span>
             </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label text-secondary small">EV Target %</label>
+          <div class="mb-1">
+            <label class="form-label text-secondary small mb-0">EV Target</label>
             <div class="input-group input-group-sm">
               <input type="number" name="ev_target" class="form-control bg-dark text-light border-secondary"
                      min="0" max="100" step="1" value="{{ ev_target|int }}">
               <span class="input-group-text bg-dark text-secondary border-secondary">%</span>
             </div>
           </div>
-          <button type="submit" class="btn btn-sm btn-outline-info w-100">Recalculate</button>
+          <button type="submit" class="btn btn-sm btn-outline-info w-100 mt-1">Recalculate</button>
         </form>
       </div>
     </div>
 
     {# Battery analysis #}
     <div class="col-12 col-md-4">
-      <div class="card p-3 h-100">
-        <div class="card-title mb-2">Battery Analysis</div>
+      <div class="card p-2 h-100">
+        <div class="card-title mb-1">Battery Analysis</div>
         {% set ba = analysis.battery %}
         {% set bw = ba.best_window %}
-        <div class="mb-2">
+        <div class="mb-1">
           <span class="stat-label">Needs</span>
           <span class="stat-value ms-2">{{ ba.needed_kwh }} kWh</span>
           <span class="text-secondary small ms-1">({{ battery_soc|int }}% → 100%)</span>
         </div>
-        <div class="mb-2">
+        <div class="mb-1">
           <span class="stat-label">Cost now</span>
           <span class="stat-value ms-2">${{ "%.2f"|format(ba.cost_now_dollars) }}</span>
         </div>
@@ -255,18 +254,16 @@
           {% set bw_color = descriptor_colors.get(bw.descriptor, '#90a4ae') %}
           <div class="mb-1">
             <span class="stat-label">Best window</span>
-            <span class="badge ms-1" style="background:{{ bw_color }};color:#000;font-size:0.7rem">{{ bw.descriptor }}</span>
+            <span class="badge ms-1" style="background:{{ bw_color }};color:#000;font-size:0.65rem">{{ bw.descriptor }}</span>
+            <span class="text-light small ms-1">{{ bw.start_time[:16]|replace("T"," ") }}</span>
           </div>
-          <div class="text-light small mb-1">{{ bw.start_time[:16]|replace("T"," ") }}</div>
-          <div class="mb-2">
+          <div class="mb-1">
             <span class="stat-label">Cost then</span>
             <span class="stat-value ms-2">${{ "%.2f"|format(bw.total_cost_dollars) }}</span>
-            <span class="text-secondary small ms-1">({{ bw.avg_price }}¢/kWh avg)</span>
+            <span class="text-secondary small ms-1">({{ bw.avg_price }}¢ avg)</span>
           </div>
           {% if ba.saving_dollars > 0 %}
-            <div class="alert alert-success py-1 px-2 mb-0 small">
-              Save ${{ "%.2f"|format(ba.saving_dollars) }} ({{ ba.saving_pct }}%) by waiting
-            </div>
+            <div class="alert alert-success py-1 px-2 mb-0 small">Save ${{ "%.2f"|format(ba.saving_dollars) }} ({{ ba.saving_pct }}%) by waiting</div>
           {% else %}
             <div class="alert alert-secondary py-1 px-2 mb-0 small">Now is the best time to charge</div>
           {% endif %}
@@ -276,16 +273,16 @@
 
     {# EV analysis #}
     <div class="col-12 col-md-4">
-      <div class="card p-3 h-100">
-        <div class="card-title mb-2">EV Analysis</div>
+      <div class="card p-2 h-100">
+        <div class="card-title mb-1">EV Analysis</div>
         {% set ea = analysis.ev %}
         {% set ew = ea.best_window %}
-        <div class="mb-2">
+        <div class="mb-1">
           <span class="stat-label">Needs</span>
           <span class="stat-value ms-2">{{ ea.needed_kwh }} kWh</span>
           <span class="text-secondary small ms-1">({{ ev_soc|int }}% → {{ ev_target|int }}%)</span>
         </div>
-        <div class="mb-2">
+        <div class="mb-1">
           <span class="stat-label">Cost now</span>
           <span class="stat-value ms-2">${{ "%.2f"|format(ea.cost_now_dollars) }}</span>
         </div>
@@ -293,18 +290,16 @@
           {% set ew_color = descriptor_colors.get(ew.descriptor, '#90a4ae') %}
           <div class="mb-1">
             <span class="stat-label">Best window</span>
-            <span class="badge ms-1" style="background:{{ ew_color }};color:#000;font-size:0.7rem">{{ ew.descriptor }}</span>
+            <span class="badge ms-1" style="background:{{ ew_color }};color:#000;font-size:0.65rem">{{ ew.descriptor }}</span>
+            <span class="text-light small ms-1">{{ ew.start_time[:16]|replace("T"," ") }}</span>
           </div>
-          <div class="text-light small mb-1">{{ ew.start_time[:16]|replace("T"," ") }}</div>
-          <div class="mb-2">
+          <div class="mb-1">
             <span class="stat-label">Cost then</span>
             <span class="stat-value ms-2">${{ "%.2f"|format(ew.total_cost_dollars) }}</span>
-            <span class="text-secondary small ms-1">({{ ew.avg_price }}¢/kWh avg)</span>
+            <span class="text-secondary small ms-1">({{ ew.avg_price }}¢ avg)</span>
           </div>
           {% if ea.saving_dollars > 0 %}
-            <div class="alert alert-success py-1 px-2 mb-0 small">
-              Save ${{ "%.2f"|format(ea.saving_dollars) }} ({{ ea.saving_pct }}%) by waiting
-            </div>
+            <div class="alert alert-success py-1 px-2 mb-0 small">Save ${{ "%.2f"|format(ea.saving_dollars) }} ({{ ea.saving_pct }}%) by waiting</div>
           {% else %}
             <div class="alert alert-secondary py-1 px-2 mb-0 small">Now is the best time to charge</div>
           {% endif %}
@@ -314,11 +309,11 @@
 
   </div>
 
-  {# ── Row 3: Price stats + feed-in opportunity ── #}
-  <div class="row g-3 mb-3">
+  {# ── Row 3: Price stats + feed-in ── #}
+  <div class="row g-2 mb-2">
     <div class="col-12 col-md-6">
-      <div class="card p-3">
-        <div class="card-title mb-2">Price Stats — next 24h</div>
+      <div class="card p-2">
+        <div class="card-title mb-1">Price Stats — next 24h</div>
         {% set s = analysis.stats_24h %}
         <div class="d-flex justify-content-between align-items-end">
           <div class="text-center">
@@ -342,86 +337,73 @@
       </div>
     </div>
     <div class="col-12 col-md-6">
-      <div class="card p-3">
-        <div class="card-title mb-2">Export / Feed-in</div>
+      <div class="card p-2">
+        <div class="card-title mb-1">Export / Feed-in</div>
         {% set fi = analysis.feedin %}
         <div class="mb-1">
           <span class="stat-label">Current rate</span>
           <span class="stat-value ms-2">{{ fi.price }}¢/kWh</span>
-        </div>
-        <div class="mb-2 text-secondary small">
-          {{ "%+.2f"|format(fi.vs_avg_24h) }}¢ vs 24h avg buy price
+          <span class="text-secondary small ms-2">{{ "%+.2f"|format(fi.vs_avg_24h) }}¢ vs 24h avg</span>
         </div>
         {% if fi.opportunity %}
-          <div class="alert alert-success py-1 px-2 mb-0 small">
-            ✓ Feed-in rate is above average buy price — good time to export
-          </div>
+          <div class="alert alert-success py-1 px-2 mb-0 small">✓ Feed-in above avg buy — good time to export</div>
         {% else %}
-          <div class="alert alert-secondary py-1 px-2 mb-0 small">
-            Hold — buy price expected to be lower than current feed-in rate
-          </div>
+          <div class="alert alert-secondary py-1 px-2 mb-0 small">Hold — avg buy price expected lower than feed-in</div>
         {% endif %}
       </div>
     </div>
   </div>
 
-  {# ── Row 5: Power flow + 7-day usage ── #}
-  <div class="row g-3 mb-3">
+  {# ── Row 4: Power flow + 7-day usage ── #}
+  <div class="row g-2 mb-2">
 
-    {# Live power flow #}
+    {# Power flow #}
     <div class="col-12 col-md-5">
-      <div class="card p-3 h-100">
-        <div class="card-title mb-3">Power Flow — right now</div>
+      <div class="card p-2 h-100">
+        <div class="card-title mb-1">Power Flow</div>
         {% if foxess %}
           {% set bat_c    = foxess.batChargePower or 0 %}
           {% set bat_d    = foxess.batDischargePower or 0 %}
           {% set load     = foxess.loadsPower or 0 %}
           {% set grid_in  = foxess.gridConsumptionPower or 0 %}
           {% set grid_out = foxess.feedinPower or 0 %}
-          {# Derive solar from energy balance: sources = sinks
-             solar + grid_in + bat_d = load + grid_out + bat_c  #}
           {% set solar_kw = [load + grid_out + bat_c - grid_in - bat_d, 0] | max %}
-          <div class="row text-center g-2">
+          <div class="row g-1 text-center">
             <div class="col-4">
-              <div class="p-2 rounded" style="background:#1e3a1e">
-                <div class="small text-secondary">Solar</div>
-                <div class="fw-bold" style="color:#ffeb3b">{{ solar_kw|round(2) }} kW</div>
-                <div class="small text-secondary mt-1">via Fronius</div>
+              <div class="flow-box" style="background:#1e3a1e">
+                <div class="flow-label">Solar</div>
+                <div class="flow-val" style="color:#ffeb3b">{{ solar_kw|round(2) }} kW</div>
               </div>
             </div>
             <div class="col-4">
-              <div class="p-2 rounded" style="background:#1a2a3a">
-                <div class="small text-secondary">Battery</div>
+              <div class="flow-box" style="background:#1a2a3a">
+                <div class="flow-label">Battery</div>
                 {% if bat_c > 0.05 %}
-                  <div class="fw-bold text-success">+{{ bat_c|round(2) }} kW</div>
-                  <div class="small text-secondary">charging</div>
+                  <div class="flow-val text-success">+{{ bat_c|round(2) }} kW</div>
                 {% elif bat_d > 0.05 %}
-                  <div class="fw-bold text-warning">-{{ bat_d|round(2) }} kW</div>
-                  <div class="small text-secondary">discharging</div>
+                  <div class="flow-val text-warning">-{{ bat_d|round(2) }} kW</div>
                 {% else %}
-                  <div class="fw-bold text-secondary">idle</div>
+                  <div class="flow-val text-secondary">idle</div>
                 {% endif %}
               </div>
             </div>
             <div class="col-4">
-              <div class="p-2 rounded" style="background:#2a1a1a">
-                <div class="small text-secondary">Grid</div>
+              <div class="flow-box" style="background:#2a1a1a">
+                <div class="flow-label">Grid</div>
                 {% if grid_out > 0.05 %}
-                  <div class="fw-bold text-success">↑ {{ grid_out|round(2) }} kW</div>
-                  <div class="small text-secondary">exporting</div>
+                  <div class="flow-val text-success">↑ {{ grid_out|round(2) }} kW</div>
                 {% elif grid_in > 0.05 %}
-                  <div class="fw-bold text-danger">↓ {{ grid_in|round(2) }} kW</div>
-                  <div class="small text-secondary">importing</div>
+                  <div class="flow-val text-danger">↓ {{ grid_in|round(2) }} kW</div>
                 {% else %}
-                  <div class="fw-bold text-secondary">idle</div>
+                  <div class="flow-val text-secondary">idle</div>
                 {% endif %}
               </div>
             </div>
           </div>
-          <div class="text-center mt-3">
-            <div class="p-2 rounded" style="background:#1a1a2e; border:1px solid #0f3460">
-              <div class="small text-secondary">House Load</div>
-              <div class="fw-bold text-light" style="font-size:1.4rem">{{ load|round(2) }} kW</div>
+          <div class="text-center mt-1">
+            <div class="flow-box" style="background:#1a1a2e;border:1px solid #0f3460">
+              <div class="flow-label">House Load</div>
+              <div class="flow-val text-light" style="font-size:1.2rem">{{ load|round(2) }} kW</div>
             </div>
           </div>
         {% else %}
@@ -432,30 +414,30 @@
 
     {# 7-day usage chart #}
     <div class="col-12 col-md-7">
-      <div class="card p-3 h-100">
-        <div class="card-title mb-2">7-day Usage</div>
-        <div id="usageChart" style="height:220px"></div>
+      <div class="card p-2 h-100">
+        <div class="card-title mb-1">7-day Usage</div>
+        <div id="usageChart" style="height:180px"></div>
       </div>
     </div>
 
   </div>
 
   {# ── Price forecast chart ── #}
-  <div class="row g-3 mb-3">
+  <div class="row g-2 mb-2">
     <div class="col-12">
-      <div class="card p-3">
-        <div class="card-title mb-2">Price Forecast — next 48 hours</div>
-        <div id="priceChart" class="plotly-chart" style="height:320px"></div>
+      <div class="card p-2">
+        <div class="card-title mb-1">Price Forecast — next 48 hours</div>
+        <div id="priceChart" class="plotly-chart" style="height:280px"></div>
       </div>
     </div>
   </div>
 
-  {# ── Row 3: Renewables chart ── #}
-  <div class="row g-3 mb-3">
+  {# ── Renewables chart ── #}
+  <div class="row g-2 mb-2">
     <div class="col-12">
-      <div class="card p-3">
-        <div class="card-title mb-2">Renewables Forecast — next 48 hours</div>
-        <div id="renewablesChart" class="plotly-chart" style="height:220px"></div>
+      <div class="card p-2">
+        <div class="card-title mb-1">Renewables Forecast — next 48 hours</div>
+        <div id="renewablesChart" class="plotly-chart" style="height:180px"></div>
       </div>
     </div>
   </div>
@@ -463,111 +445,48 @@
 </div>
 
 <script>
-// ── Price chart ──────────────────────────────────────────────────────────────
 const past     = {{ past | tojson }};
 const current  = {{ (current | tojson) if current else 'null' }};
 const forecast = {{ forecast | tojson }};
-
-const COLORS = {{ descriptor_colors | tojson }};
+const COLORS   = {{ descriptor_colors | tojson }};
 
 function buildPriceTraces() {
   const allIntervals = [...past];
   if (current) allIntervals.push(current);
   allIntervals.push(...forecast);
-
   const times  = allIntervals.map(iv => iv.nemTime);
   const prices = allIntervals.map(iv => iv.perKwh);
   const colors = allIntervals.map(iv => COLORS[iv.descriptor] || '#90a4ae');
-  const isForecast = allIntervals.map(iv => iv.type === 'ForecastInterval');
-
-  // Split into actual vs forecast for styling
-  const actualTimes  = [], actualPrices  = [], actualColors  = [];
-  const fcstTimes    = [], fcstPrices    = [], fcstColors    = [];
-
+  const actualTimes = [], actualPrices = [], actualColors = [];
+  const fcstTimes   = [], fcstPrices   = [], fcstColors   = [];
   allIntervals.forEach((iv, i) => {
     if (iv.type === 'ForecastInterval') {
-      fcstTimes.push(times[i]);
-      fcstPrices.push(prices[i]);
-      fcstColors.push(colors[i]);
+      fcstTimes.push(times[i]); fcstPrices.push(prices[i]); fcstColors.push(colors[i]);
     } else {
-      actualTimes.push(times[i]);
-      actualPrices.push(prices[i]);
-      actualColors.push(colors[i]);
+      actualTimes.push(times[i]); actualPrices.push(prices[i]); actualColors.push(colors[i]);
     }
   });
-
   const traces = [];
-  if (actualTimes.length) {
-    traces.push({
-      x: actualTimes, y: actualPrices,
-      type: 'bar', name: 'Actual',
-      marker: { color: actualColors, opacity: 0.9 },
-    });
-  }
-  if (fcstTimes.length) {
-    traces.push({
-      x: fcstTimes, y: fcstPrices,
-      type: 'bar', name: 'Forecast',
-      marker: { color: fcstColors, opacity: 0.5 },
-    });
-  }
-
-  // Zero line
-  traces.push({
-    x: [times[0], times[times.length-1]], y: [0, 0],
-    mode: 'lines', showlegend: false,
-    line: { color: '#ffffff', width: 1, dash: 'dot' },
-  });
-
+  if (actualTimes.length) traces.push({ x: actualTimes, y: actualPrices, type: 'bar', name: 'Actual',   marker: { color: actualColors, opacity: 0.9 } });
+  if (fcstTimes.length)   traces.push({ x: fcstTimes,   y: fcstPrices,   type: 'bar', name: 'Forecast', marker: { color: fcstColors,   opacity: 0.5 } });
+  traces.push({ x: [times[0], times[times.length-1]], y: [0,0], mode: 'lines', showlegend: false, line: { color: '#ffffff', width: 1, dash: 'dot' } });
   return traces;
 }
 
 Plotly.newPlot('priceChart', buildPriceTraces(), {
-  paper_bgcolor: 'rgba(0,0,0,0)',
-  plot_bgcolor:  'rgba(0,0,0,0)',
-  font:  { color: '#e0e0e0', size: 11 },
+  paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { color: '#e0e0e0', size: 10 },
   xaxis: { gridcolor: '#1e3a5f', tickformat: '%a %H:%M', tickangle: -45 },
   yaxis: { gridcolor: '#1e3a5f', title: '¢/kWh', zeroline: false },
   bargap: 0.1,
-  margin: { t: 10, r: 10, b: 70, l: 55 },
+  margin: { t: 5, r: 10, b: 65, l: 50 },
   legend: { orientation: 'h', y: 1.1 },
 }, { responsive: true });
 
-// ── Renewables chart ─────────────────────────────────────────────────────────
 const renewables = {{ renewables | tojson }};
 const rTimes  = renewables.map(r => r.nemTime);
 const rValues = renewables.map(r => r.renewables);
-const rColors = rValues.map(v => {
-  if (v >= 80) return '#00c853';
-  if (v >= 60) return '#69f0ae';
-  if (v >= 40) return '#ffeb3b';
-  if (v >= 20) return '#ff6d00';
-  return '#d50000';
-});
-
-// ── 7-day usage chart ────────────────────────────────────────────────────────
-const usageDaily = {{ usage_daily | tojson }};
-if (document.getElementById('usageChart') && usageDaily.length) {
-  const uDates   = usageDaily.map(d => d.date);
-  const uConsume = usageDaily.map(d => +(d.consume_kwh).toFixed(2));
-  const uFeedin  = usageDaily.map(d => +(d.feedin_kwh).toFixed(2));
-  const uCost    = usageDaily.map(d => +(d.cost).toFixed(2));
-
-  Plotly.newPlot('usageChart', [
-    { x: uDates, y: uConsume, type: 'bar', name: 'Consumed kWh',
-      marker: { color: '#ff6d00', opacity: 0.85 } },
-    { x: uDates, y: uFeedin,  type: 'bar', name: 'Exported kWh',
-      marker: { color: '#00c853', opacity: 0.85 } },
-  ], {
-    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-    font:    { color: '#e0e0e0', size: 11 },
-    xaxis:   { gridcolor: '#1e3a5f' },
-    yaxis:   { gridcolor: '#1e3a5f', title: 'kWh' },
-    barmode: 'group',
-    margin:  { t: 10, r: 10, b: 40, l: 50 },
-    legend:  { orientation: 'h', y: 1.15 },
-  }, { responsive: true });
-}
+const rColors = rValues.map(v => v >= 80 ? '#00c853' : v >= 60 ? '#69f0ae' : v >= 40 ? '#ffeb3b' : v >= 20 ? '#ff6d00' : '#d50000');
 
 Plotly.newPlot('renewablesChart', [{
   x: rTimes, y: rValues,
@@ -575,16 +494,30 @@ Plotly.newPlot('renewablesChart', [{
   line: { color: '#00c853', width: 2 },
   fillcolor: 'rgba(0,200,83,0.15)',
 }], {
-  paper_bgcolor: 'rgba(0,0,0,0)',
-  plot_bgcolor:  'rgba(0,0,0,0)',
-  font:  { color: '#e0e0e0', size: 11 },
+  paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+  font: { color: '#e0e0e0', size: 10 },
   xaxis: { gridcolor: '#1e3a5f', tickformat: '%a %H:%M', tickangle: -45 },
   yaxis: { gridcolor: '#1e3a5f', title: '%', range: [0, 100], zeroline: false },
-  margin: { t: 10, r: 10, b: 70, l: 55 },
+  margin: { t: 5, r: 10, b: 65, l: 45 },
 }, { responsive: true });
 
+const usageDaily = {{ usage_daily | tojson }};
+if (document.getElementById('usageChart') && usageDaily.length) {
+  Plotly.newPlot('usageChart', [
+    { x: usageDaily.map(d => d.date), y: usageDaily.map(d => +(d.consume_kwh).toFixed(2)), type: 'bar', name: 'Consumed kWh', marker: { color: '#ff6d00', opacity: 0.85 } },
+    { x: usageDaily.map(d => d.date), y: usageDaily.map(d => +(d.feedin_kwh).toFixed(2)),  type: 'bar', name: 'Exported kWh', marker: { color: '#00c853', opacity: 0.85 } },
+  ], {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { color: '#e0e0e0', size: 10 },
+    xaxis: { gridcolor: '#1e3a5f' },
+    yaxis: { gridcolor: '#1e3a5f', title: 'kWh' },
+    barmode: 'group',
+    margin: { t: 5, r: 10, b: 35, l: 45 },
+    legend: { orientation: 'h', y: 1.15 },
+  }, { responsive: true });
+}
+
 {% if data_stale %}
-// Data was served from cache — reload once background refresh has had time to complete
 setTimeout(() => { window.location.reload(); }, 8000);
 {% endif %}
 </script>
