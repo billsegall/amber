@@ -48,20 +48,22 @@
     <div class="card-title mb-3">Notification Delivery</div>
     <form method="POST">
       <input type="hidden" name="action" value="save_notify">
-      <div class="mb-3">
-        <label class="form-label small">ntfy.sh topic</label>
-        <div class="d-flex gap-2 align-items-center">
-          <input type="text" name="ntfy_topic" class="form-control form-control-sm"
-                 style="max-width:240px" placeholder="e.g. amber-bill8"
-                 value="{{ config.ntfy_topic }}">
-          {% if config.notify_method == "ntfy" %}
-            <span class="badge badge-on">active</span>
-          {% else %}
-            <span class="badge badge-off">not set</span>
-          {% endif %}
+      <div class="mb-3 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+        <div>
+          <label class="form-label small">ntfy.sh topic</label>
+          <div class="d-flex gap-2 align-items-center">
+            <input type="text" name="ntfy_topic" class="form-control form-control-sm"
+                   style="max-width:240px" placeholder="e.g. amber-bill8"
+                   value="{{ config.ntfy_topic }}">
+            {% if config.notify_method == "ntfy" %}
+              <span class="badge badge-on">active</span>
+            {% else %}
+              <span class="badge badge-off">not set</span>
+            {% endif %}
+          </div>
+          <div class="text-secondary small mt-1">Install the ntfy app and subscribe to this topic.</div>
         </div>
-        <div class="text-secondary small mt-1">Install the ntfy app and subscribe to this topic.</div>
-        <div class="mt-2 d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
           <a href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank" rel="noopener">
             <img src="/static/badge-google-play.png" alt="Get it on Google Play" height="36">
           </a>
