@@ -142,22 +142,22 @@
       </div>
     </div>
 
-    {# Solar / Fronius #}
+    {# Solar — prefer FOX ESS generationPower (Fronius AC-coupled), fall back to Fronius local API #}
     <div class="col-6 col-md-2">
       <div class="card h-100 p-3">
         <div class="card-title mb-2">Solar</div>
-        {% if solar and solar.p_pv_w is not none %}
+        {% if foxess and foxess.generationPower is not none %}
+          {% set gen_kw = foxess.generationPower %}
+          <div class="stat-value" style="color:#ffeb3b">{{ gen_kw|round(1) }} <span class="price-unit">kW</span></div>
+          <div class="stat-label mt-1">generating</div>
+          {% if solar and solar.e_day_wh %}
+            <div class="mt-2 text-secondary small">{{ (solar.e_day_wh / 1000)|round(1) }} kWh today</div>
+          {% endif %}
+        {% elif solar and solar.p_pv_w is not none %}
           <div class="stat-value" style="color:#ffeb3b">{{ (solar.p_pv_w / 1000)|round(1) }} <span class="price-unit">kW</span></div>
           <div class="stat-label mt-1">generating</div>
           {% if solar.e_day_wh %}
             <div class="mt-2 text-secondary small">{{ (solar.e_day_wh / 1000)|round(1) }} kWh today</div>
-          {% endif %}
-          {% if solar.p_grid_w is not none %}
-            {% if solar.p_grid_w < 0 %}
-              <div class="text-success small mt-1">↑ {{ (solar.p_grid_w|abs / 1000)|round(2) }} kW export</div>
-            {% else %}
-              <div class="text-warning small mt-1">↓ {{ (solar.p_grid_w / 1000)|round(2) }} kW import</div>
-            {% endif %}
           {% endif %}
         {% else %}
           <div class="stat-value text-secondary" style="font-size:1.2rem">—</div>
@@ -365,7 +365,6 @@
       <div class="card p-3 h-100">
         <div class="card-title mb-3">Power Flow — right now</div>
         {% if foxess %}
-          {% set pv    = foxess.pvPower or 0 %}
           {% set gen   = foxess.generationPower or 0 %}
           {% set bat_c = foxess.batChargePower or 0 %}
           {% set bat_d = foxess.batDischargePower or 0 %}
@@ -376,8 +375,8 @@
             <div class="col-4">
               <div class="p-2 rounded" style="background:#1e3a1e">
                 <div class="small text-secondary">Solar</div>
-                <div class="fw-bold" style="color:#ffeb3b">{{ pv|round(2) }} kW</div>
-                <div class="small text-secondary mt-1">gen {{ gen|round(2) }} kW</div>
+                <div class="fw-bold" style="color:#ffeb3b">{{ gen|round(2) }} kW</div>
+                <div class="small text-secondary mt-1">via Fronius</div>
               </div>
             </div>
             <div class="col-4">
