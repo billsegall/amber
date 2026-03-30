@@ -351,7 +351,6 @@ def preferences():
                 "ev_capacity_kwh":          _float("ev_capacity_kwh", 100.0),
                 "ev_charge_kw":             _float("ev_charge_kw", 7.0),
                 "ev_target_soc":            _float("ev_target_soc", 85.0),
-                "ntfy_topic":               request.form.get("ntfy_topic", "").strip(),
             })
             db.set_preferences(current_user.id, prefs)
             success.append("Preferences saved.")
