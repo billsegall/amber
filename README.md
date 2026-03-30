@@ -90,6 +90,15 @@ On first run a default `admin` / `amber` account is created — log in and chang
 - Alerts page shows live state (spike/cheap/green/charging) and test button
 - All alert toggles and thresholds configurable directly on the Alerts page
 
+### Battery Control (`/battery`)
+- Live status: SOC, charge/discharge rate, grid import
+- **Quick charge** — select duration (30m–8h) and hit Charge Now; sets a force charge window from now
+- **Stop charging** — clears force charge immediately; shown when a window is active
+- **Work mode** — switch between SelfUse, Feedin, Backup
+- **Min SOC on grid** — set the discharge floor when grid is available
+- **Advanced schedule** — set two recurring force charge time windows
+- All FOX ESS data served stale-while-revalidate (same 60s cache as dashboard)
+
 ### Preferences (`/preferences`)
 - Hardware config: battery capacity/SOC/charge rate, EV capacity/rate/target SOC
 - Location/state (used for renewables data)
@@ -109,11 +118,11 @@ All data available as JSON for future mobile clients:
 ### Stage 1 — Data & Dashboard ✓ complete
 ### Stage 2 — Analysis & Opportunity Detection ✓ complete
 ### Stage 3 — Notifications & Alerts ✓ complete
-### Stage 4 — Control Integration ✓ (monitoring complete; direct control TBD)
+### Stage 4 — Control Integration ✓ (battery control complete)
 - FOX ESS battery: live SOC and power flow ✓
 - Fronius Primo solar: live generation and grid flow ✓
-- EV charger: OCPP, not yet online (expected ~2 weeks)
-- Direct battery charge/discharge commands: pending
+- Direct battery control: force charge, work mode, min SOC ✓
+- EV charger: OCPP, not yet online
 
 ### Stage 5 — Automated Optimization
 - Automated EV charging scheduler: charge during cheapest forecast window
