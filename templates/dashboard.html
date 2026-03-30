@@ -32,18 +32,24 @@
 </div>
 {% endif %}
 
-<nav class="navbar navbar-dark" style="background:#0f3460">
+<nav class="navbar navbar-dark navbar-expand-md" style="background:#0f3460">
   <div class="container-fluid">
-    <span class="navbar-brand fw-bold">⚡ Amber Monitor</span>
-    <div class="d-flex align-items-center gap-3">
-      {% if signal_configured %}
-        <span class="text-success small">🔔 Alerts on</span>
-      {% else %}
-        <a href="/preferences" class="text-warning small text-decoration-none">🔕 Set up alerts</a>
-      {% endif %}
-      <a href="/alerts" class="btn btn-sm btn-outline-secondary">Alerts</a>
-      <a href="/preferences" class="btn btn-sm btn-outline-secondary">Prefs</a>
-      <a href="/logout" class="btn btn-sm btn-outline-secondary">Sign out</a>
+    <a class="navbar-brand fw-bold" href="/">⚡ Amber Monitor</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMenu">
+      <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+        {% if signal_configured %}
+          <li class="nav-item"><span class="nav-link text-success small pe-none">🔔 Alerts on</span></li>
+        {% else %}
+          <li class="nav-item"><a href="/preferences" class="nav-link text-warning small">🔕 Set up alerts</a></li>
+        {% endif %}
+        <li class="nav-item"><a href="/alerts" class="nav-link">Alerts</a></li>
+        <li class="nav-item"><a href="/preferences" class="nav-link">Preferences</a></li>
+        <li class="nav-item"><span class="nav-link text-secondary small">{{ current_user.username }}</span></li>
+        <li class="nav-item"><a href="/logout" class="nav-link">Sign out</a></li>
+      </ul>
     </div>
   </div>
 </nav>

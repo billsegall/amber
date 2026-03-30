@@ -132,7 +132,7 @@ def login():
         user_row = db.verify_password(username, password)
         if user_row:
             user = User(user_row)
-            login_user(user)
+            login_user(user, remember=True)
             if user.must_change_password:
                 flash("Please change your password before continuing.", "warning")
                 return redirect(url_for("preferences"))
