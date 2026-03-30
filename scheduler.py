@@ -72,6 +72,12 @@ def _daily_summary():
         if not prefs.get("alert_daily_summary", True):
             log.info("Daily summary skipped — disabled in prefs")
             return
+
+        state = _load_state()
+        today = datetime.now().strftime("%Y-%m-%d")
+        if state.get("last_daily_summary_date") == today:
+            log.info("Daily summary skipped — already sent today (%s)", today)
+            return
         client  = get_client()
         site_id = get_site_id(client)
         general = client.get_current_prices(site_id, next_intervals=96, previous_intervals=0,
@@ -83,7 +89,6 @@ def _daily_summary():
         feedin_current = next((iv for iv in feedin  if iv.get("type") == "CurrentInterval"), None)
         forecast       = [iv for iv in general if iv.get("type") == "ForecastInterval"]
 
-        state       = _load_state()
         battery_soc = state.get("battery_soc", 50.0)
         ev_soc      = state.get("ev_soc",      50.0)
         ev_target   = prefs.get("ev_target_soc", 85.0)
@@ -101,7 +106,9 @@ def _daily_summary():
             battery_soc_pct=battery_soc, battery_target_pct=100.0,
             ev_soc_pct=ev_soc, ev_target_pct=ev_target, hw=hw,
         )
-        send_daily_summary(current, analysis.get("stats_24h", {}), analysis)
+        if send_daily_summary(current, analysis.get("stats_24h", {}), analysis):
+            state["last_daily_summary_date"] = today
+            _save_state(state)
 
     except Exception as e:
         log.error("Daily summary failed: %s", e)
