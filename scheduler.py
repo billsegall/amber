@@ -37,6 +37,7 @@ def _poll():
         current        = next((iv for iv in general    if iv.get("type") == "CurrentInterval"), None)
         feedin_current = next((iv for iv in feedin     if iv.get("type") == "CurrentInterval"), None)
         renew_current  = next((iv for iv in renewables if iv.get("type") == "CurrentRenewable"), None)
+        forecast       = [iv for iv in general if iv.get("type") == "ForecastInterval"]
 
         # Fetch FOX ESS realtime for charging-stop detection
         foxess_realtime = None
@@ -56,7 +57,7 @@ def _poll():
         except Exception as e:
             log.warning("FOX ESS unavailable in scheduler: %s", e)
 
-        sent = check_and_alert(current, feedin_current, renew_current, foxess_realtime, prefs)
+        sent = check_and_alert(current, feedin_current, renew_current, foxess_realtime, prefs, forecast)
         if sent:
             log.info("Alerts sent: %d", len(sent))
 

@@ -41,7 +41,8 @@ def _save_state(state: dict):
 def check_and_alert(current: dict, feedin_current: dict | None,
                     renewables_current: dict | None,
                     foxess_realtime: dict | None,
-                    prefs: dict) -> list[str]:
+                    prefs: dict,
+                    forecast: list[dict] | None = None) -> list[str]:
     """
     Check current conditions against prefs thresholds.
     Send notifications for new state transitions.
@@ -121,6 +122,99 @@ def check_and_alert(current: dict, feedin_current: dict | None,
             state["was_charging"] = is_charging
         else:
             log.warning("Battery charge stop alert skipped — no FOX ESS data this poll")
+
+    # ── Negative price ────────────────────────────────────────────────────────
+    if prefs.get("alert_negative_price", True):
+        is_negative  = price < 0
+        was_negative = state.get("was_negative", False)
+        if is_negative and not was_negative:
+            msg = (f"🤑 Amber: Negative price! {price:.1f}¢/kWh\n"
+                   f"You're being paid to consume — charge everything now.")
+            if send_notification(msg, title="Amber — Negative price", priority="urgent"):
+                sent.append(msg)
+        elif not is_negative and was_negative:
+            msg = f"Amber: Price back to {price:.1f}¢/kWh ({descriptor})"
+            if send_notification(msg, title="Amber — Price recovered", priority="default"):
+                sent.append(msg)
+        state["was_negative"] = is_negative
+
+    # ── Feed-in spike ─────────────────────────────────────────────────────────
+    if prefs.get("alert_feedin_spike", True) and feedin_current:
+        threshold        = float(prefs.get("alert_feedin_spike_threshold", 30.0))
+        feedin_price     = feedin_current.get("perKwh", 0)
+        is_feedin_spike  = feedin_price >= threshold
+        was_feedin_spike = state.get("was_feedin_spike", False)
+        if is_feedin_spike and not was_feedin_spike:
+            msg = (f"💰 Amber: High feed-in rate — {feedin_price:.1f}¢/kWh\n"
+                   f"Great time to export from battery if possible.")
+            if send_notification(msg, title="Amber — Feed-in spike", priority="high"):
+                sent.append(msg)
+        elif not is_feedin_spike and was_feedin_spike:
+            msg = f"Amber: Feed-in rate back to {feedin_price:.1f}¢/kWh"
+            if send_notification(msg, title="Amber — Feed-in normalised", priority="default"):
+                sent.append(msg)
+        state["was_feedin_spike"] = is_feedin_spike
+
+    # ── Spike incoming (forecast) ─────────────────────────────────────────────
+    if prefs.get("alert_spike_incoming", True) and forecast:
+        lookahead_min = int(prefs.get("alert_spike_incoming_minutes", 30))
+        from datetime import timezone, timedelta as td
+        now_utc = datetime.now(timezone.utc)
+        cutoff  = now_utc + td(minutes=lookahead_min)
+        upcoming = []
+        for iv in forecast:
+            raw = iv.get("startTime") or iv.get("nemTime", "")
+            if not raw:
+                continue
+            try:
+                if raw.endswith("Z"):
+                    raw = raw[:-1] + "+00:00"
+                iv_ts = datetime.fromisoformat(raw)
+                if iv_ts.tzinfo is None:
+                    continue
+                if now_utc <= iv_ts <= cutoff and iv.get("spikeStatus") in ("spike", "potential"):
+                    upcoming.append(iv)
+            except Exception:
+                continue
+        was_incoming = state.get("was_spike_incoming", False)
+        is_incoming  = bool(upcoming)
+        if is_incoming and not was_incoming:
+            first = upcoming[0]
+            label = "spike" if first.get("spikeStatus") == "spike" else "potential spike"
+            msg = (f"⚡ Amber: {label.capitalize()} forecast in ~{lookahead_min} min\n"
+                   f"Expected price: {first.get('perKwh', 0):.1f}¢/kWh — charge now if possible.")
+            if send_notification(msg, title="Amber — Spike incoming", priority="high"):
+                sent.append(msg)
+        state["was_spike_incoming"] = is_incoming
+
+    # ── Battery SOC low ───────────────────────────────────────────────────────
+    if prefs.get("alert_soc_low", True) and foxess_realtime:
+        threshold = float(prefs.get("alert_soc_low_pct", 20))
+        bat_soc   = foxess_realtime.get("SoC", 0) or 0
+        is_low    = bat_soc <= threshold
+        was_low   = state.get("was_soc_low", False)
+        if is_low and not was_low:
+            msg = (f"🪫 Amber: Battery low — {bat_soc:.0f}%\n"
+                   f"Current price: {price:.1f}¢/kWh ({descriptor})")
+            if send_notification(msg, title="Amber — Battery low", priority="high"):
+                sent.append(msg)
+        elif was_low and bat_soc >= threshold + 5:
+            state["was_soc_low"] = False
+        else:
+            state["was_soc_low"] = is_low
+
+    # ── Battery full ──────────────────────────────────────────────────────────
+    if prefs.get("alert_battery_full", True) and foxess_realtime:
+        target   = float(prefs.get("alert_battery_full_pct", 95))
+        bat_soc  = foxess_realtime.get("SoC", 0) or 0
+        is_full  = bat_soc >= target
+        was_full = state.get("was_battery_full", False)
+        if is_full and not was_full:
+            msg = (f"🔋 Amber: Battery full — {bat_soc:.0f}%\n"
+                   f"Current price: {price:.1f}¢/kWh ({descriptor})")
+            if send_notification(msg, title="Amber — Battery full", priority="default"):
+                sent.append(msg)
+        state["was_battery_full"] = is_full
 
     state["last_poll"] = datetime.now().isoformat()
     _save_state(state)
