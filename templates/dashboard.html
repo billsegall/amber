@@ -47,6 +47,9 @@
         {% endif %}
         <li class="nav-item"><a href="/alerts" class="nav-link">Alerts</a></li>
         <li class="nav-item"><a href="/preferences" class="nav-link">Preferences</a></li>
+        {% if data_stale %}
+          <li class="nav-item"><span class="nav-link text-secondary small fst-italic" id="staleTag">Updating…</span></li>
+        {% endif %}
         <li class="nav-item"><span class="nav-link text-secondary small">{{ current_user.username }}</span></li>
         <li class="nav-item"><a href="/logout" class="nav-link">Sign out</a></li>
       </ul>
@@ -363,6 +366,7 @@
         <div class="card-title mb-3">Power Flow — right now</div>
         {% if foxess %}
           {% set pv    = foxess.pvPower or 0 %}
+          {% set gen   = foxess.generationPower or 0 %}
           {% set bat_c = foxess.batChargePower or 0 %}
           {% set bat_d = foxess.batDischargePower or 0 %}
           {% set load  = foxess.loadsPower or 0 %}
@@ -373,6 +377,7 @@
               <div class="p-2 rounded" style="background:#1e3a1e">
                 <div class="small text-secondary">Solar</div>
                 <div class="fw-bold" style="color:#ffeb3b">{{ pv|round(2) }} kW</div>
+                <div class="small text-secondary mt-1">gen {{ gen|round(2) }} kW</div>
               </div>
             </div>
             <div class="col-4">
@@ -568,6 +573,11 @@ Plotly.newPlot('renewablesChart', [{
   yaxis: { gridcolor: '#1e3a5f', title: '%', range: [0, 100], zeroline: false },
   margin: { t: 10, r: 10, b: 70, l: 55 },
 }, { responsive: true });
+
+{% if data_stale %}
+// Data was served from cache — reload once background refresh has had time to complete
+setTimeout(() => { window.location.reload(); }, 8000);
+{% endif %}
 </script>
 
 </body>

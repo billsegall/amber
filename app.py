@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import threading
 import time
 from datetime import date, timedelta
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
@@ -65,18 +66,44 @@ DEFAULT_BATTERY_SOC = 50.0
 DEFAULT_EV_SOC      = 50.0
 DEFAULT_EV_TARGET   = 85.0
 
-# ── Simple TTL cache for dashboard API calls ──────────────────────────────────
-_cache: dict = {}
-_CACHE_TTL   = 60  # seconds
+# ── Stale-while-revalidate cache ──────────────────────────────────────────────
+_cache: dict     = {}
+_refreshing: set = set()
+_CACHE_TTL       = 60  # seconds
 
 
-def _cached(key: str, fn, *args, **kwargs):
+def _ensure_fresh(key: str, fn, *args, **kwargs):
+    """Return (value, is_stale).
+
+    If no cached value exists, fetch synchronously (first load).
+    If cached value is stale, return it immediately and fire a background
+    thread to refresh it — the next page load will get fresh data.
+    """
     entry = _cache.get(key)
-    if entry and (time.time() - entry["ts"]) < _CACHE_TTL:
-        return entry["val"]
-    val = fn(*args, **kwargs)
-    _cache[key] = {"ts": time.time(), "val": val}
-    return val
+    now   = time.time()
+
+    if entry is None:
+        try:
+            val = fn(*args, **kwargs)
+        except Exception:
+            val = None
+        _cache[key] = {"ts": now, "val": val}
+        return val, False
+
+    stale = (now - entry["ts"]) >= _CACHE_TTL
+    if stale and key not in _refreshing:
+        _refreshing.add(key)
+        def _bg(k=key, f=fn, a=args, kw=kwargs):
+            try:
+                val = f(*a, **kw)
+                _cache[k] = {"ts": time.time(), "val": val}
+            except Exception:
+                pass
+            finally:
+                _refreshing.discard(k)
+        threading.Thread(target=_bg, daemon=True).start()
+
+    return entry["val"], stale
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -165,34 +192,41 @@ def dashboard():
             state["ev_target"]   = ev_target
             _save_state(state)
         else:
-            ev_soc    = float(state.get("ev_soc",    DEFAULT_EV_SOC))
-            ev_target = float(prefs.get("ev_target_soc", DEFAULT_EV_TARGET))
-            # Battery SOC: prefer live FOX ESS reading
-            live_soc = None
-            try:
-                fc = get_foxess_client()
-                if fc:
-                    sn = get_device_sn()
-                    if sn:
-                        live_soc = fc.get_battery_soc(sn)
-            except Exception:
-                pass
-            if live_soc is not None:
-                battery_soc = live_soc
-                state["battery_soc"] = battery_soc
-                _save_state(state)
-            else:
-                battery_soc = float(state.get("battery_soc", DEFAULT_BATTERY_SOC))
+            ev_soc      = float(state.get("ev_soc",    DEFAULT_EV_SOC))
+            ev_target   = float(prefs.get("ev_target_soc", DEFAULT_EV_TARGET))
+            battery_soc = float(state.get("battery_soc", DEFAULT_BATTERY_SOC))
 
         client  = get_client()
         site_id = get_site_id(client)
         loc = prefs.get("location_state", "QLD")
-        general    = _cached("general",    client.get_current_prices, site_id, next_intervals=96, previous_intervals=24, channel_type="general")
-        feedin_iv  = _cached("feedin",     client.get_current_prices, site_id, next_intervals=96, previous_intervals=24, channel_type="feedIn")
-        renewables = _cached(f"ren_{loc}", client.get_renewables, state=loc, next_intervals=96, previous_intervals=24)
 
-        past, current, forecast         = _split_intervals(general)
-        _, feedin_current, feedin_forecast = _split_intervals(feedin_iv)
+        general,    s1 = _ensure_fresh("general",    client.get_current_prices, site_id, next_intervals=96, previous_intervals=24, channel_type="general")
+        feedin_iv,  s2 = _ensure_fresh("feedin",     client.get_current_prices, site_id, next_intervals=96, previous_intervals=24, channel_type="feedIn")
+        renewables, s3 = _ensure_fresh(f"ren_{loc}", client.get_renewables, state=loc, next_intervals=96, previous_intervals=24)
+
+        past, current, forecast            = _split_intervals(general   or [])
+        _, feedin_current, feedin_forecast = _split_intervals(feedin_iv or [])
+
+        # FOX ESS — single realtime call covers both SOC and power flow
+        foxess, s4 = None, False
+        try:
+            fc = get_foxess_client()
+            if fc:
+                sn = get_device_sn()
+                if sn:
+                    foxess, s4 = _ensure_fresh("foxess", fc.get_realtime, sn)
+        except Exception:
+            pass
+
+        # Derive battery SOC from realtime data when available
+        if request.method == "GET":
+            if foxess and foxess.get("SoC") is not None:
+                battery_soc = float(foxess["SoC"])
+                state["battery_soc"] = battery_soc
+                _save_state(state)
+
+        solar, s5 = _ensure_fresh("solar", get_power_flow_safe)
+        data_stale = any([s1, s2, s3, s4, s5])
 
         hw = _hw_from_prefs(prefs)
         analysis = analyse(
@@ -207,21 +241,11 @@ def dashboard():
         )
 
         last_poll = state.get("last_poll", "")
-        solar = get_power_flow_safe()
-        foxess = None
-        try:
-            fc = get_foxess_client()
-            if fc:
-                sn = get_device_sn()
-                if sn:
-                    foxess = fc.get_realtime(sn)
-        except Exception:
-            pass
 
         try:
             end   = date.today()
             start = end - timedelta(days=6)
-            usage = _cached("usage", client.get_usage, site_id, start, end)
+            usage, _ = _ensure_fresh("usage", client.get_usage, site_id, start, end)
         except Exception:
             usage = []
 
@@ -246,6 +270,7 @@ def dashboard():
             signal_configured=is_configured(),
             descriptor_colors=DESCRIPTOR_COLORS,
             descriptor_labels=DESCRIPTOR_LABELS,
+            data_stale=data_stale,
         )
     except Exception as e:
         import traceback
