@@ -69,6 +69,9 @@ def _daily_summary():
     """Called once per day at the configured hour."""
     try:
         prefs   = db.get_default_preferences()
+        if not prefs.get("alert_daily_summary", True):
+            log.info("Daily summary skipped — disabled in prefs")
+            return
         client  = get_client()
         site_id = get_site_id(client)
         general = client.get_current_prices(site_id, next_intervals=96, previous_intervals=0,
