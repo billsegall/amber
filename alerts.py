@@ -99,20 +99,25 @@ def check_and_alert(current: dict, feedin_current: dict | None,
         state["was_green"] = is_green
 
     # ── Battery charging stopped alert ────────────────────────────────────────
-    if prefs.get("alert_battery_charge_stop", True) and foxess_realtime:
-        bat_charge_kw = foxess_realtime.get("batChargePower", 0) or 0
-        is_charging   = bat_charge_kw > 0.2   # >200W = actively charging
-        was_charging  = state.get("was_charging", False)
-        bat_soc       = foxess_realtime.get("SoC", 0) or 0
+    if prefs.get("alert_battery_charge_stop", True):
+        if foxess_realtime:
+            bat_charge_kw = foxess_realtime.get("batChargePower", 0) or 0
+            is_charging   = bat_charge_kw > 0.2   # >200W = actively charging
+            was_charging  = state.get("was_charging", False)
+            bat_soc       = foxess_realtime.get("SoC", 0) or 0
+            log.info("Battery charge check: was_charging=%s is_charging=%s (%.2fkW) SoC=%.0f%%",
+                     was_charging, is_charging, bat_charge_kw, bat_soc)
 
-        if was_charging and not is_charging and bat_soc < 98:
-            # Was charging, now stopped, and not because it's full
-            msg = (f"🔋 Amber: Battery charging stopped\n"
-                   f"SOC: {bat_soc:.0f}%\n"
-                   f"Current price: {price:.1f}¢/kWh ({descriptor})")
-            if send_notification(msg, title="Amber — Charging stopped", priority="high"):
-                sent.append(msg)
-        state["was_charging"] = is_charging
+            if was_charging and not is_charging and bat_soc < 98:
+                msg = (f"🔋 Amber: Battery charging stopped\n"
+                       f"SOC: {bat_soc:.0f}%\n"
+                       f"Current price: {price:.1f}¢/kWh ({descriptor})")
+                log.info("Firing battery-charge-stop alert")
+                if send_notification(msg, title="Amber — Charging stopped", priority="high"):
+                    sent.append(msg)
+            state["was_charging"] = is_charging
+        else:
+            log.warning("Battery charge stop alert skipped — no FOX ESS data this poll")
 
     state["last_poll"] = datetime.now().isoformat()
     _save_state(state)

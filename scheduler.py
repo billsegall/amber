@@ -46,8 +46,15 @@ def _poll():
                 sn = get_device_sn()
                 if sn:
                     foxess_realtime = fc.get_realtime(sn)
+                    if foxess_realtime:
+                        log.info("FOX ESS: SoC=%.0f%% charge=%.2fkW discharge=%.2fkW",
+                                 foxess_realtime.get("SoC", 0),
+                                 foxess_realtime.get("batChargePower", 0) or 0,
+                                 foxess_realtime.get("batDischargePower", 0) or 0)
+                    else:
+                        log.warning("FOX ESS returned no data")
         except Exception as e:
-            log.debug("FOX ESS unavailable in scheduler: %s", e)
+            log.warning("FOX ESS unavailable in scheduler: %s", e)
 
         sent = check_and_alert(current, feedin_current, renew_current, foxess_realtime, prefs)
         if sent:
