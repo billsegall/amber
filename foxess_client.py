@@ -71,6 +71,26 @@ class FoxESSClient:
             log.error("FOX ESS POST %s failed: %s", path, e)
             return None
 
+    def _post_ok(self, path: str, payload: dict) -> bool:
+        """POST and return True if errno == 0, regardless of result content."""
+        try:
+            r = requests.post(
+                f"{BASE_URL}{path}",
+                json=payload,
+                headers=_headers(self.token, path),
+                timeout=10,
+            )
+            r.raise_for_status()
+            body = r.json()
+            errno = body.get("errno", -1)
+            if errno != 0:
+                log.warning("FOX ESS error %s: %s", errno, body.get("msg"))
+                return False
+            return True
+        except Exception as e:
+            log.error("FOX ESS POST %s failed: %s", path, e)
+            return False
+
     def get_devices(self) -> list[dict]:
         """List all inverters on the account."""
         result = self._post("/op/v0/device/list", {"pageSize": 10, "currentPage": 1})
@@ -121,9 +141,7 @@ class FoxESSClient:
                    enable2, startTime2/endTime2.
         Returns True on success.
         """
-        payload = {"sn": sn, **data}
-        result = self._post("/op/v0/device/battery/forceChargeTime/set", payload)
-        return result is not None
+        return self._post_ok("/op/v0/device/battery/forceChargeTime/set", {"sn": sn, **data})
 
     # ── Work mode & SOC settings ──────────────────────────────────────────────
 
@@ -136,9 +154,7 @@ class FoxESSClient:
 
     def set_setting(self, sn: str, key: str, value: str) -> bool:
         """Set a single device setting. Returns True on success."""
-        result = self._post("/op/v0/device/setting/set",
-                            {"sn": sn, "key": key, "value": value})
-        return result is not None
+        return self._post_ok("/op/v0/device/setting/set", {"sn": sn, "key": key, "value": value})
 
 
 def get_client() -> FoxESSClient | None:
