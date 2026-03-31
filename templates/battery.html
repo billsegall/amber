@@ -102,8 +102,8 @@
 
   {% if not control_available %}
   <div class="alert py-2 px-3 mb-2 small" style="background:#1e2a1e;border:1px solid #ff6d00;color:#ffb74d">
-    Battery control unavailable — monitoring data is working, but the FOX ESS API is not returning settings or force-charge data.
-    Check that your API key has <strong>control permissions</strong> enabled at foxesscloud.com.
+    Battery control unavailable — monitoring is working but device control access has not been granted.
+    <a href="{{ url_for('foxess_oauth') }}" class="ms-1" style="color:#69f0ae">Set up device control →</a>
   </div>
   {% endif %}
 

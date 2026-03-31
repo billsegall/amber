@@ -11,7 +11,8 @@ from amber_client import get_client, get_site_id
 from optimizer import analyse, HardwareConfig
 from notifications import send_notification, is_configured, get_method
 from fronius_client import get_power_flow_safe
-from foxess_client import get_client as get_foxess_client, get_device_sn
+from foxess_client import get_client as get_foxess_client, get_device_sn, \
+    get_auth_url as foxess_auth_url, exchange_code_for_tokens, has_oauth_tokens
 from solar_forecast_client import get_forecast as _solar_get_forecast
 from alerts import _load_state, _save_state
 import db
@@ -619,6 +620,31 @@ def battery_control():
         foxess_available=bool(fc and sn),
         control_available=bool(settings is not None or force_charge is not None),
     )
+
+
+# ── FOX ESS OAuth setup ───────────────────────────────────────────────────────
+@app.route("/foxess-auth", methods=["GET", "POST"])
+@login_required
+def foxess_oauth():
+    auth_url = foxess_auth_url()
+    msg, error = None, None
+
+    if request.method == "POST":
+        code = request.form.get("code", "").strip()
+        if not code:
+            error = "Paste the authorization code from the redirect URL."
+        elif exchange_code_for_tokens(code):
+            _cache.pop("bat_force_charge", None)
+            _cache.pop("bat_settings", None)
+            msg = "Connected! Device control is now enabled."
+        else:
+            error = "Token exchange failed — check the server log for details."
+
+    return render_template("foxess_auth.html",
+                           auth_url=auth_url,
+                           has_tokens=has_oauth_tokens(),
+                           msg=msg,
+                           error=error)
 
 
 # ── JSON API ──────────────────────────────────────────────────────────────────

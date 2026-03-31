@@ -1,26 +1,149 @@
 """
 FOX ESS Cloud API client.
-Auth: private token + MD5 signature per request.
-Rate limit: 1440 calls/day per inverter.
+Supports two auth modes:
+  1. API key + MD5 signature (data access only)
+  2. OAuth bearer token (data + device control)
+OAuth tokens are stored in foxess_tokens.json (gitignored).
 """
 import hashlib
+import json
 import logging
 import os
 import time
+
 import requests
 
 log = logging.getLogger(__name__)
 
-BASE_URL = "https://www.foxesscloud.com"
+BASE_URL    = "https://www.foxesscloud.com"
+TOKENS_FILE = os.path.join(os.path.dirname(__file__), "foxess_tokens.json")
 
+
+# ── OAuth token storage ───────────────────────────────────────────────────────
+
+def _load_tokens() -> dict:
+    try:
+        with open(TOKENS_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_tokens(tokens: dict):
+    with open(TOKENS_FILE, "w") as f:
+        json.dump(tokens, f)
+
+
+def _refresh_access_token() -> str | None:
+    """Use the stored refresh_token to get a new access_token. Returns new token or None."""
+    client_id     = os.environ.get("FOXESS_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("FOXESS_CLIENT_SECRET", "").strip()
+    tokens        = _load_tokens()
+    refresh_token = tokens.get("refresh_token", "")
+    if not (client_id and client_secret and refresh_token):
+        return None
+    try:
+        r = requests.post(
+            f"{BASE_URL}/oauth2/refresh",
+            data={
+                "grant_type":    "refresh_token",
+                "client_id":     client_id,
+                "client_secret": client_secret,
+                "refresh_token": refresh_token,
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        data = r.json()
+        if "access_token" in data:
+            tokens["access_token"]  = data["access_token"]
+            tokens["expires_at"]    = time.time() + data.get("expires_in", 86400) - 60
+            if "refresh_token" in data:
+                tokens["refresh_token"] = data["refresh_token"]
+            _save_tokens(tokens)
+            log.info("FOX ESS OAuth token refreshed")
+            return tokens["access_token"]
+    except Exception as e:
+        log.error("FOX ESS token refresh failed: %s", e)
+    return None
+
+
+def _get_bearer_token() -> str | None:
+    """Return a valid access_token, refreshing if needed. None if OAuth not configured."""
+    tokens = _load_tokens()
+    if not tokens.get("access_token"):
+        return None
+    # Refresh if expiring within 60s
+    if time.time() >= tokens.get("expires_at", 0):
+        return _refresh_access_token()
+    return tokens["access_token"]
+
+
+def exchange_code_for_tokens(code: str) -> bool:
+    """Exchange an authorization code for access+refresh tokens. Returns True on success."""
+    client_id     = os.environ.get("FOXESS_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("FOXESS_CLIENT_SECRET", "").strip()
+    redirect_uri  = os.environ.get("FOXESS_REDIRECT_URI", "http://localhost").strip()
+    if not (client_id and client_secret):
+        log.error("FOXESS_CLIENT_ID / FOXESS_CLIENT_SECRET not set")
+        return False
+    try:
+        r = requests.post(
+            f"{BASE_URL}/oauth2/token",
+            data={
+                "grant_type":    "authorization_code",
+                "client_id":     client_id,
+                "client_secret": client_secret,
+                "redirect_uri":  redirect_uri,
+                "code":          code,
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        data = r.json()
+        log.info("FOX ESS token exchange response: %s", data)
+        if "access_token" not in data:
+            log.error("No access_token in response: %s", data)
+            return False
+        _save_tokens({
+            "access_token":  data["access_token"],
+            "refresh_token": data.get("refresh_token", ""),
+            "expires_at":    time.time() + data.get("expires_in", 86400) - 60,
+        })
+        log.info("FOX ESS OAuth tokens saved")
+        return True
+    except Exception as e:
+        log.error("FOX ESS token exchange failed: %s", e)
+        return False
+
+
+def get_auth_url() -> str | None:
+    """Return the FOX ESS authorization URL, or None if OAuth not configured."""
+    client_id    = os.environ.get("FOXESS_CLIENT_ID", "").strip()
+    redirect_uri = os.environ.get("FOXESS_REDIRECT_URI", "http://localhost").strip()
+    if not client_id:
+        return None
+    return (
+        f"{BASE_URL}/h5/auth/foxessindex"
+        f"?response_type=code"
+        f"&client_id={client_id}"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope=data_access,device_control"
+    )
+
+
+def has_oauth_tokens() -> bool:
+    return bool(_load_tokens().get("access_token"))
+
+
+# ── MD5 signature auth (read-only API key) ────────────────────────────────────
 
 def _signature(token: str, path: str, timestamp: int) -> str:
-    # Raw string — \r\n is literal backslash-r-backslash-n, not CR+LF
     raw = fr"{path}\r\n{token}\r\n{timestamp}"
     return hashlib.md5(raw.encode("UTF-8")).hexdigest()
 
 
-def _headers(token: str, path: str) -> dict:
+def _apikey_headers(token: str, path: str) -> dict:
     ts = int(time.time() * 1000)
     return {
         "Token":        token,
@@ -31,36 +154,35 @@ def _headers(token: str, path: str) -> dict:
     }
 
 
+def _oauth_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {_get_bearer_token()}",
+        "Lang":          "en",
+        "Content-Type":  "application/json",
+    }
+
+
+# ── Client ────────────────────────────────────────────────────────────────────
+
 class FoxESSClient:
     def __init__(self, token: str):
-        self.token = token
+        self.token = token  # API key (MD5 auth) — used as fallback for read ops
 
-    def _get(self, path: str, params: dict | None = None) -> dict | None:
-        try:
-            r = requests.get(
-                f"{BASE_URL}{path}",
-                params=params,
-                headers=_headers(self.token, path),
-                timeout=10,
-            )
-            r.raise_for_status()
-            body = r.json()
-            if body.get("errno", 0) != 0:
-                log.warning("FOX ESS error %s: %s", body.get("errno"), body.get("msg"))
-                return None
-            return body.get("result")
-        except Exception as e:
-            log.error("FOX ESS GET %s failed: %s", path, e)
-            return None
+    def _headers_for(self, prefer_oauth: bool = False) -> dict:
+        """Return OAuth headers if available (and preferred), else API key headers."""
+        bearer = _get_bearer_token()
+        if prefer_oauth and bearer:
+            return {"Authorization": f"Bearer {bearer}", "Lang": "en", "Content-Type": "application/json"}
+        return _apikey_headers(self.token, "")  # path unused in this wrapper
 
-    def _post(self, path: str, payload: dict) -> dict | None:
+    def _post(self, path: str, payload: dict, oauth: bool = False) -> dict | None:
+        bearer = _get_bearer_token()
+        if oauth and bearer:
+            hdrs = {"Authorization": f"Bearer {bearer}", "Lang": "en", "Content-Type": "application/json"}
+        else:
+            hdrs = _apikey_headers(self.token, path)
         try:
-            r = requests.post(
-                f"{BASE_URL}{path}",
-                json=payload,
-                headers=_headers(self.token, path),
-                timeout=10,
-            )
+            r = requests.post(f"{BASE_URL}{path}", json=payload, headers=hdrs, timeout=10)
             r.raise_for_status()
             body = r.json()
             if body.get("errno", 0) != 0:
@@ -71,21 +193,21 @@ class FoxESSClient:
             log.error("FOX ESS POST %s failed: %s", path, e)
             return None
 
-    def _post_ok(self, path: str, payload: dict) -> tuple[bool, str]:
+    def _post_ok(self, path: str, payload: dict, oauth: bool = True) -> tuple[bool, str]:
         """POST and return (True, "") if errno == 0, else (False, error_msg)."""
+        bearer = _get_bearer_token()
+        if oauth and bearer:
+            hdrs = {"Authorization": f"Bearer {bearer}", "Lang": "en", "Content-Type": "application/json"}
+        else:
+            hdrs = _apikey_headers(self.token, path)
         try:
             log.info("FOX ESS POST %s payload: %s", path, payload)
-            r = requests.post(
-                f"{BASE_URL}{path}",
-                json=payload,
-                headers=_headers(self.token, path),
-                timeout=10,
-            )
+            r = requests.post(f"{BASE_URL}{path}", json=payload, headers=hdrs, timeout=10)
             r.raise_for_status()
             body = r.json()
             log.info("FOX ESS POST %s response: %s", path, body)
             errno = body.get("errno", -1)
-            msg = body.get("msg", "")
+            msg   = body.get("msg", "")
             if errno != 0:
                 log.warning("FOX ESS error %s: %s", errno, msg)
                 return False, f"API error {errno}: {msg}"
@@ -95,71 +217,41 @@ class FoxESSClient:
             return False, str(e)
 
     def get_devices(self) -> list[dict]:
-        """List all inverters on the account."""
         result = self._post("/op/v0/device/list", {"pageSize": 10, "currentPage": 1})
         if result is None:
             return []
         return result.get("data", [])
 
-    def get_battery_soc(self, sn: str) -> float | None:
-        """Return current battery SOC % or None."""
-        result = self._post("/op/v0/device/real/query", {
-            "sn": sn,
-            "variables": ["SoC"],
-        })
-        if not result:
-            return None
-        datas = result[0].get("datas", []) if result else []
-        for item in datas:
-            if item.get("variable") == "SoC":
-                return item.get("value")
-        return None
-
     def get_realtime(self, sn: str) -> dict | None:
-        """Return a dict of key realtime variables."""
         variables = ["SoC", "batChargePower", "batDischargePower",
                      "generationPower", "loadsPower", "gridConsumptionPower",
                      "feedinPower", "pvPower"]
-        result = self._post("/op/v0/device/real/query", {
-            "sn": sn,
-            "variables": variables,
-        })
+        result = self._post("/op/v0/device/real/query", {"sn": sn, "variables": variables})
         if not result:
             return None
-        # result is a list of device objects each with a "datas" list
         datas = result[0].get("datas", []) if result else []
         return {item["variable"]: item.get("value") for item in datas}
-
 
     # ── Force charge time windows ─────────────────────────────────────────────
 
     def get_force_charge(self, sn: str) -> dict | None:
-        """Return force charge time config (two periods)."""
-        result = self._post("/op/v0/device/battery/forceChargeTime/get", {"sn": sn})
+        result = self._post("/op/v0/device/battery/forceChargeTime/get", {"sn": sn}, oauth=True)
         log.info("FOX ESS get_force_charge raw result: %s", result)
         return result
 
     def set_force_charge(self, sn: str, data: dict) -> tuple[bool, str]:
-        """
-        Set force charge time windows.
-        data keys: enable1, startTime1/endTime1 ({"hour":H,"minute":M}),
-                   enable2, startTime2/endTime2.
-        Returns (True, "") on success, (False, error_msg) on failure.
-        """
-        return self._post_ok("/op/v0/device/battery/forceChargeTime/set", {"sn": sn, **data})
+        return self._post_ok("/op/v0/device/battery/forceChargeTime/set", {"sn": sn, **data}, oauth=True)
 
     # ── Work mode & SOC settings ──────────────────────────────────────────────
 
     def get_settings(self, sn: str, keys: list[str]) -> dict | None:
-        """Query one or more device settings by key. Returns {key: value, ...}."""
-        result = self._post("/op/v0/device/setting/query", {"sn": sn, "keys": keys})
+        result = self._post("/op/v0/device/setting/query", {"sn": sn, "keys": keys}, oauth=True)
         if not result:
             return None
         return {item["key"]: item.get("value") for item in result}
 
     def set_setting(self, sn: str, key: str, value: str) -> tuple[bool, str]:
-        """Set a single device setting. Returns (True, "") on success."""
-        return self._post_ok("/op/v0/device/setting/set", {"sn": sn, "key": key, "value": value})
+        return self._post_ok("/op/v0/device/setting/set", {"sn": sn, "key": key, "value": value}, oauth=True)
 
 
 def get_client() -> FoxESSClient | None:
@@ -170,7 +262,6 @@ def get_client() -> FoxESSClient | None:
 
 
 def get_device_sn() -> str | None:
-    """Return SN from env or auto-discover from first device."""
     sn = os.environ.get("FOXESS_DEVICE_SN", "").strip()
     if sn:
         return sn

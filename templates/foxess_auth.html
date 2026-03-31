@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FOX ESS Device Control — Amber</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+</head>
+<body>
+{% include '_navbar.html' %}
+<div class="container py-2" style="max-width:560px">
+
+  <div class="card p-3 mb-2">
+    <div class="card-title mb-2">FOX ESS Device Control Setup</div>
+
+    {% if msg %}
+      <div class="alert alert-success py-2 px-3 small mb-2">{{ msg }}</div>
+    {% endif %}
+    {% if error %}
+      <div class="alert alert-danger py-2 px-3 small mb-2">{{ error }}</div>
+    {% endif %}
+
+    {% if has_tokens %}
+      <div class="alert py-2 px-3 small mb-3" style="background:#1e2a1e;border:1px solid #00c853;color:#69f0ae">
+        Device control is connected. You can re-authorise below if needed.
+      </div>
+    {% endif %}
+
+    {% if auth_url %}
+    <p class="small" style="color:#c0cfe0">
+      FOX ESS uses OAuth to grant device control access. Follow these steps:
+    </p>
+    <ol class="small" style="color:#c0cfe0">
+      <li class="mb-2">
+        Click the link below to authorise on the FOX ESS portal:
+        <br>
+        <a href="{{ auth_url }}" target="_blank" class="text-info" style="word-break:break-all">{{ auth_url }}</a>
+      </li>
+      <li class="mb-2">
+        After approving, your browser will be redirected to <code>localhost</code> (which will fail to load —
+        that's expected). Copy the <code>code=…</code> value from the address bar.
+      </li>
+      <li>Paste it below and click Authorise.</li>
+    </ol>
+
+    <form method="POST">
+      <div class="mb-2">
+        <input type="text" name="code" class="form-control form-control-sm"
+               placeholder="Paste authorization code here" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-sm btn-success">Authorise</button>
+      <a href="{{ url_for('battery_control') }}" class="btn btn-sm btn-secondary ms-2">Cancel</a>
+    </form>
+    {% else %}
+      <div class="alert alert-warning py-2 px-3 small">
+        FOXESS_CLIENT_ID is not configured. Add it to your <code>.env</code> file.
+      </div>
+    {% endif %}
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
