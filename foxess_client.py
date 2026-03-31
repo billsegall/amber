@@ -240,7 +240,7 @@ class FoxESSClient:
         return result
 
     def set_force_charge(self, sn: str, data: dict) -> tuple[bool, str]:
-        return self._post_ok("/op/v0/device/battery/forceChargeTime/set", {"sn": sn, **data}, oauth=True)
+        return self._post_ok("/op/v0/device/battery/forceChargeTime/set", {"sn": sn, **data}, oauth=False)
 
     # ── Work mode & SOC settings ──────────────────────────────────────────────
 
@@ -251,7 +251,7 @@ class FoxESSClient:
         return {item["key"]: item.get("value") for item in result}
 
     def set_setting(self, sn: str, key: str, value: str) -> tuple[bool, str]:
-        return self._post_ok("/op/v0/device/setting/set", {"sn": sn, "key": key, "value": value}, oauth=True)
+        return self._post_ok("/op/v0/device/setting/set", {"sn": sn, "key": key, "value": value}, oauth=False)
 
 
 def get_client() -> FoxESSClient | None:

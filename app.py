@@ -530,12 +530,16 @@ def battery_control():
                         return {"hour": int(h), "minute": int(m)}
 
                     data = {
-                        "enable1":    "enable1" in request.form,
-                        "startTime1": _hm("start1"),
-                        "endTime1":   _hm("end1"),
-                        "enable2":    "enable2" in request.form,
-                        "startTime2": _hm("start2"),
-                        "endTime2":   _hm("end2"),
+                        "enable1":      "enable1" in request.form,
+                        "startTime1":   _hm("start1"),
+                        "endTime1":     _hm("end1"),
+                        "chargeToSoc1": 95,
+                        "enableGrid1":  True,
+                        "enable2":      "enable2" in request.form,
+                        "startTime2":   _hm("start2"),
+                        "endTime2":     _hm("end2"),
+                        "chargeToSoc2": 95,
+                        "enableGrid2":  False,
                     }
                 except Exception:
                     errors.append("Invalid time format")
@@ -559,12 +563,16 @@ def battery_control():
                     now  = datetime.now()
                     end  = now + timedelta(minutes=minutes)
                     data = {
-                        "enable1":    True,
-                        "startTime1": {"hour": now.hour, "minute": now.minute},
-                        "endTime1":   {"hour": end.hour, "minute": end.minute},
-                        "enable2":    False,
-                        "startTime2": {"hour": 0, "minute": 0},
-                        "endTime2":   {"hour": 0, "minute": 0},
+                        "enable1":      True,
+                        "startTime1":   {"hour": now.hour, "minute": now.minute},
+                        "endTime1":     {"hour": end.hour, "minute": end.minute},
+                        "chargeToSoc1": 95,
+                        "enableGrid1":  True,
+                        "enable2":      False,
+                        "startTime2":   {"hour": 0, "minute": 0},
+                        "endTime2":     {"hour": 0, "minute": 0},
+                        "chargeToSoc2": 95,
+                        "enableGrid2":  False,
                     }
                     ok, err = fc.set_force_charge(sn, data)
                     if ok:
@@ -578,9 +586,9 @@ def battery_control():
             elif action == "stop_charging":
                 data = {
                     "enable1": False, "startTime1": {"hour": 0, "minute": 0},
-                    "endTime1": {"hour": 0, "minute": 0},
+                    "endTime1": {"hour": 0, "minute": 0}, "chargeToSoc1": 95, "enableGrid1": False,
                     "enable2": False, "startTime2": {"hour": 0, "minute": 0},
-                    "endTime2": {"hour": 0, "minute": 0},
+                    "endTime2": {"hour": 0, "minute": 0}, "chargeToSoc2": 95, "enableGrid2": False,
                 }
                 ok, err = fc.set_force_charge(sn, data)
                 if ok:
@@ -592,9 +600,9 @@ def battery_control():
             elif action == "clear_force_charge":
                 data = {
                     "enable1": False, "startTime1": {"hour": 0, "minute": 0},
-                    "endTime1": {"hour": 0, "minute": 0},
+                    "endTime1": {"hour": 0, "minute": 0}, "chargeToSoc1": 95, "enableGrid1": False,
                     "enable2": False, "startTime2": {"hour": 0, "minute": 0},
-                    "endTime2": {"hour": 0, "minute": 0},
+                    "endTime2": {"hour": 0, "minute": 0}, "chargeToSoc2": 95, "enableGrid2": False,
                 }
                 ok, err = fc.set_force_charge(sn, data)
                 if ok:
