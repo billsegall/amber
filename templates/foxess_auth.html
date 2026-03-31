@@ -9,7 +9,24 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
 </head>
 <body>
-{% include '_navbar.html' %}
+<nav class="navbar navbar-dark navbar-expand-md" style="background:#0f3460">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="/">⚡ Amber Monitor</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navMenu">
+      <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+        <li class="nav-item"><a href="/" class="nav-link">Dashboard</a></li>
+        <li class="nav-item"><a href="/battery" class="nav-link">Battery</a></li>
+        <li class="nav-item"><a href="/alerts" class="nav-link">Alerts</a></li>
+        <li class="nav-item"><a href="/preferences" class="nav-link">Preferences</a></li>
+        <li class="nav-item"><span class="nav-link text-secondary small">{{ current_user.username }}</span></li>
+        <li class="nav-item"><a href="/logout" class="nav-link">Sign out</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
 <div class="container py-2" style="max-width:560px">
 
   <div class="card p-3 mb-2">
