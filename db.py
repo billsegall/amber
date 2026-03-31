@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import sqlite3
+import statistics
 from contextlib import contextmanager
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -27,6 +28,12 @@ DEFAULT_PREFERENCES = {
     "ev_capacity_kwh": 100.0,
     "ev_charge_kw": 7.0,
     "ev_target_soc": 85.0,
+    # Solar forecast config
+    "solar_lat":     -27.47,
+    "solar_lon":     153.02,
+    "solar_tilt":    20,
+    "solar_azimuth": 0,
+    "solar_kwp":     5.6,
     # Notifications
     "ntfy_topic": "",
     # Alerts
@@ -63,6 +70,14 @@ def init_db():
                 password_hash       TEXT NOT NULL,
                 must_change_password INTEGER NOT NULL DEFAULT 1,
                 preferences         TEXT NOT NULL DEFAULT '{}'
+            )
+        """)
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS solar_actuals (
+                date         TEXT PRIMARY KEY,
+                actual_kwh   REAL,
+                forecast_kwh REAL,
+                correction   REAL
             )
         """)
         # Create default admin if no users exist
@@ -135,3 +150,47 @@ def get_default_preferences() -> dict:
         if not row:
             return dict(DEFAULT_PREFERENCES)
         return get_preferences(row["id"])
+
+
+# ── Solar actuals helpers ─────────────────────────────────────────────────────
+
+def upsert_solar_actual(date: str, actual_kwh: float | None = None,
+                        forecast_kwh: float | None = None):
+    """Insert or update a row in solar_actuals. Recalculates correction when both are set."""
+    with _conn() as con:
+        con.execute("""
+            INSERT INTO solar_actuals (date, actual_kwh, forecast_kwh, correction)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(date) DO UPDATE SET
+                actual_kwh   = COALESCE(excluded.actual_kwh,   actual_kwh),
+                forecast_kwh = COALESCE(excluded.forecast_kwh, forecast_kwh),
+                correction   = CASE
+                    WHEN COALESCE(excluded.actual_kwh,   actual_kwh)   IS NOT NULL
+                     AND COALESCE(excluded.forecast_kwh, forecast_kwh) > 0
+                    THEN COALESCE(excluded.actual_kwh, actual_kwh)
+                       / COALESCE(excluded.forecast_kwh, forecast_kwh)
+                    ELSE NULL
+                END
+        """, (date, actual_kwh, forecast_kwh,
+              (actual_kwh / forecast_kwh) if (actual_kwh is not None and forecast_kwh and forecast_kwh > 0) else None))
+
+
+def get_recent_solar_actuals(days: int = 30) -> list[dict]:
+    """Return up to `days` most recent solar_actuals rows, newest first."""
+    with _conn() as con:
+        rows = con.execute("""
+            SELECT date, actual_kwh, forecast_kwh, correction
+            FROM solar_actuals
+            ORDER BY date DESC
+            LIMIT ?
+        """, (days,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_solar_correction_factor(min_days: int = 3) -> float:
+    """Return median(actual/forecast) for recent complete days; 1.0 if insufficient data."""
+    rows = get_recent_solar_actuals(30)
+    ratios = [r["correction"] for r in rows if r["correction"] is not None]
+    if len(ratios) < min_days:
+        return 1.0
+    return statistics.median(ratios)
