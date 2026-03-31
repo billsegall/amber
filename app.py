@@ -498,11 +498,13 @@ def battery_control():
                 mode = request.form.get("work_mode")
                 if mode not in WORK_MODES:
                     errors.append(f"Unknown work mode: {mode}")
-                elif fc.set_setting(sn, "workMode", mode):
-                    success.append(f"Work mode set to {mode}")
-                    _cache.pop("bat_settings", None)
                 else:
-                    errors.append("Failed to set work mode")
+                    ok, err = fc.set_setting(sn, "workMode", mode)
+                    if ok:
+                        success.append(f"Work mode set to {mode}")
+                        _cache.pop("bat_settings", None)
+                    else:
+                        errors.append(f"Failed to set work mode: {err}")
 
             elif action == "set_min_soc":
                 try:
@@ -512,11 +514,12 @@ def battery_control():
                 except ValueError:
                     errors.append("Min SOC must be 0–100")
                 else:
-                    if fc.set_setting(sn, "minSocOnGrid", str(min_soc)):
+                    ok, err = fc.set_setting(sn, "minSocOnGrid", str(min_soc))
+                    if ok:
                         success.append(f"Min SOC on grid set to {min_soc}%")
                         _cache.pop("bat_settings", None)
                     else:
-                        errors.append("Failed to set min SOC")
+                        errors.append(f"Failed to set min SOC: {err}")
 
             elif action == "set_force_charge":
                 try:
@@ -536,11 +539,12 @@ def battery_control():
                 except Exception:
                     errors.append("Invalid time format")
                 else:
-                    if fc.set_force_charge(sn, data):
+                    ok, err = fc.set_force_charge(sn, data)
+                    if ok:
                         success.append("Force charge schedule updated")
                         _cache.pop("bat_force_charge", None)
                     else:
-                        errors.append("Failed to update force charge schedule")
+                        errors.append(f"Failed to update force charge schedule: {err}")
 
             elif action == "charge_now":
                 from datetime import datetime, timedelta
@@ -561,13 +565,14 @@ def battery_control():
                         "startTime2": {"hour": 0, "minute": 0},
                         "endTime2":   {"hour": 0, "minute": 0},
                     }
-                    if fc.set_force_charge(sn, data):
+                    ok, err = fc.set_force_charge(sn, data)
+                    if ok:
                         h, m = divmod(minutes, 60)
                         label = f"{h}h {m}m" if h and m else (f"{h}h" if h else f"{m}m")
                         success.append(f"Charging from grid for {label} (until {end.strftime('%H:%M')})")
                         _cache.pop("bat_force_charge", None)
                     else:
-                        errors.append("Failed to start charging")
+                        errors.append(f"Failed to start charging: {err}")
 
             elif action == "stop_charging":
                 data = {
@@ -576,11 +581,12 @@ def battery_control():
                     "enable2": False, "startTime2": {"hour": 0, "minute": 0},
                     "endTime2": {"hour": 0, "minute": 0},
                 }
-                if fc.set_force_charge(sn, data):
+                ok, err = fc.set_force_charge(sn, data)
+                if ok:
                     success.append("Force charge stopped")
                     _cache.pop("bat_force_charge", None)
                 else:
-                    errors.append("Failed to stop charging")
+                    errors.append(f"Failed to stop charging: {err}")
 
             elif action == "clear_force_charge":
                 data = {
@@ -589,11 +595,12 @@ def battery_control():
                     "enable2": False, "startTime2": {"hour": 0, "minute": 0},
                     "endTime2": {"hour": 0, "minute": 0},
                 }
-                if fc.set_force_charge(sn, data):
+                ok, err = fc.set_force_charge(sn, data)
+                if ok:
                     success.append("Force charge cleared")
                     _cache.pop("bat_force_charge", None)
                 else:
-                    errors.append("Failed to clear force charge")
+                    errors.append(f"Failed to clear force charge: {err}")
 
         # Serve from cache; force_charge and settings are slow FOX ESS cloud calls
         realtime,     _ = _ensure_fresh("foxess",          fc.get_realtime, sn)

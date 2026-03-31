@@ -71,8 +71,8 @@ class FoxESSClient:
             log.error("FOX ESS POST %s failed: %s", path, e)
             return None
 
-    def _post_ok(self, path: str, payload: dict) -> bool:
-        """POST and return True if errno == 0, regardless of result content."""
+    def _post_ok(self, path: str, payload: dict) -> tuple[bool, str]:
+        """POST and return (True, "") if errno == 0, else (False, error_msg)."""
         try:
             r = requests.post(
                 f"{BASE_URL}{path}",
@@ -83,13 +83,14 @@ class FoxESSClient:
             r.raise_for_status()
             body = r.json()
             errno = body.get("errno", -1)
+            msg = body.get("msg", "")
             if errno != 0:
-                log.warning("FOX ESS error %s: %s", errno, body.get("msg"))
-                return False
-            return True
+                log.warning("FOX ESS error %s: %s", errno, msg)
+                return False, f"API error {errno}: {msg}"
+            return True, ""
         except Exception as e:
             log.error("FOX ESS POST %s failed: %s", path, e)
-            return False
+            return False, str(e)
 
     def get_devices(self) -> list[dict]:
         """List all inverters on the account."""
@@ -134,12 +135,12 @@ class FoxESSClient:
         """Return force charge time config (two periods)."""
         return self._post("/op/v0/device/battery/forceChargeTime/get", {"sn": sn})
 
-    def set_force_charge(self, sn: str, data: dict) -> bool:
+    def set_force_charge(self, sn: str, data: dict) -> tuple[bool, str]:
         """
         Set force charge time windows.
         data keys: enable1, startTime1/endTime1 ({"hour":H,"minute":M}),
                    enable2, startTime2/endTime2.
-        Returns True on success.
+        Returns (True, "") on success, (False, error_msg) on failure.
         """
         return self._post_ok("/op/v0/device/battery/forceChargeTime/set", {"sn": sn, **data})
 
@@ -152,8 +153,8 @@ class FoxESSClient:
             return None
         return {item["key"]: item.get("value") for item in result}
 
-    def set_setting(self, sn: str, key: str, value: str) -> bool:
-        """Set a single device setting. Returns True on success."""
+    def set_setting(self, sn: str, key: str, value: str) -> tuple[bool, str]:
+        """Set a single device setting. Returns (True, "") on success."""
         return self._post_ok("/op/v0/device/setting/set", {"sn": sn, "key": key, "value": value})
 
 
