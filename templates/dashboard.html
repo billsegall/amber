@@ -170,6 +170,13 @@
           <div class="stat-value text-secondary">—</div>
           <div class="stat-label mt-1">asleep / offline</div>
         {% endif %}
+        {% if solar_forecast %}
+          <div class="mt-1" style="font-size:0.72rem;color:#a8bdd0">
+            <span title="Tomorrow: {{ solar_forecast.tomorrow_kwh }} kWh">
+              ≈{{ solar_forecast.today_kwh }} kWh forecast
+            </span>
+          </div>
+        {% endif %}
       </div>
     </div>
 

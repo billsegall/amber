@@ -12,6 +12,7 @@ from optimizer import analyse, HardwareConfig
 from notifications import send_notification, is_configured, get_method
 from fronius_client import get_power_flow_safe
 from foxess_client import get_client as get_foxess_client, get_device_sn
+from solar_forecast_client import get_forecast as _solar_get_forecast
 from alerts import _load_state, _save_state
 import db
 
@@ -228,6 +229,34 @@ def dashboard():
         solar, s5 = _ensure_fresh("solar", get_power_flow_safe)
         data_stale = any([s1, s2, s3, s4, s5])
 
+        # Solar generation forecast (cached 1 hour)
+        solar_forecast = None
+        _sf_entry = _cache.get("solar_forecast")
+        if _sf_entry is None or (time.time() - _sf_entry["ts"]) >= 3600:
+            try:
+                solar_forecast = _solar_get_forecast(
+                    lat=float(prefs.get("solar_lat", -27.47)),
+                    lon=float(prefs.get("solar_lon",  153.02)),
+                    tilt=int(prefs.get("solar_tilt",  20)),
+                    azimuth=int(prefs.get("solar_azimuth", 0)),
+                    kwp=float(prefs.get("solar_kwp",  5.6)),
+                )
+                _cache["solar_forecast"] = {"ts": time.time(), "val": solar_forecast}
+            except Exception:
+                solar_forecast = _sf_entry["val"] if _sf_entry else None
+        else:
+            solar_forecast = _sf_entry["val"]
+        if solar_forecast:
+            correction = db.get_solar_correction_factor()
+            if correction != 1.0:
+                solar_forecast = dict(solar_forecast)
+                solar_forecast["today_kwh"]    = round(solar_forecast["today_kwh"]    * correction, 2)
+                solar_forecast["tomorrow_kwh"] = round(solar_forecast["tomorrow_kwh"] * correction, 2)
+            # Store today's forecast for later correction tracking
+            from datetime import datetime as _dt2, timezone as _tz2, timedelta as _td2
+            _today = _dt2.now(_tz2(_td2(hours=10))).strftime("%Y-%m-%d")
+            db.upsert_solar_actual(_today, forecast_kwh=solar_forecast["today_kwh"])
+
         # Solar offline detection — daytime in AEST (QLD, UTC+10) with near-zero generation
         from datetime import datetime as _dt, timezone, timedelta as _td
         _aest = timezone(_td(hours=10))
@@ -283,6 +312,7 @@ def dashboard():
             last_poll=last_poll,
             solar=solar,
             solar_offline=solar_offline,
+            solar_forecast=solar_forecast,
             foxess=foxess,
             usage_daily=usage_daily,
             signal_configured=is_configured(),
@@ -416,7 +446,14 @@ def preferences():
                 "ev_capacity_kwh":          _float("ev_capacity_kwh", 100.0),
                 "ev_charge_kw":             _float("ev_charge_kw", 7.0),
                 "ev_target_soc":            _float("ev_target_soc", 85.0),
+                "solar_lat":               _float("solar_lat", -27.47),
+                "solar_lon":               _float("solar_lon",  153.02),
+                "solar_tilt":              _int("solar_tilt",   20),
+                "solar_azimuth":           _int("solar_azimuth", 0),
+                "solar_kwp":               _float("solar_kwp",  5.6),
             })
+            # Bust cached forecast so next load uses updated params
+            _cache.pop("solar_forecast", None)
             db.set_preferences(current_user.id, prefs)
             success.append("Preferences saved.")
 

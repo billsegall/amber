@@ -92,6 +92,39 @@
       </div>
     </div>
 
+    {# Solar Forecast #}
+    <div class="card p-2 mb-2">
+      <div class="card-title mb-1">Solar Forecast</div>
+      <div class="pref-row">
+        <span class="pref-label">Latitude</span>
+        <input type="number" name="solar_lat" class="form-control form-control-sm"
+               style="width:90px" step="0.01" value="{{ prefs.solar_lat }}">
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">Longitude</span>
+        <input type="number" name="solar_lon" class="form-control form-control-sm"
+               style="width:90px" step="0.01" value="{{ prefs.solar_lon }}">
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">Panel tilt</span>
+        <input type="number" name="solar_tilt" class="form-control form-control-sm"
+               style="width:70px" step="1" min="0" max="90" value="{{ prefs.solar_tilt|int }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">° from horizontal</span>
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">Azimuth</span>
+        <input type="number" name="solar_azimuth" class="form-control form-control-sm"
+               style="width:70px" step="1" min="-180" max="180" value="{{ prefs.solar_azimuth|int }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">° (0=N, 90=E, −90=W)</span>
+      </div>
+      <div class="pref-row">
+        <span class="pref-label">System size</span>
+        <input type="number" name="solar_kwp" class="form-control form-control-sm"
+               style="width:70px" step="0.1" value="{{ prefs.solar_kwp }}">
+        <span style="font-size:0.78rem;color:#8aa0b8">kWp</span>
+      </div>
+    </div>
+
     {# EV #}
     <div class="card p-2 mb-2">
       <div class="card-title mb-1">Electric Vehicle</div>
