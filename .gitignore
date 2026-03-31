@@ -13,3 +13,4 @@ plan.md
 alert_state.json
 amber.db
 foxess_tokens.json
+restart.sh
