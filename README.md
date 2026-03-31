@@ -85,10 +85,11 @@ On first run a default `admin` / `amber` account is created — log in and chang
 - **Cheap window alert** — notification when price enters extremelyLow (configurable)
 - **High renewables alert** — notification when grid hits 80%+ green (configurable)
 - **Battery charging stopped** — notification when battery stops charging before full
+- **Battery full** — notification when SOC reaches configured threshold (default 95%)
+- **Battery SOC low** — notification when SOC drops below configured threshold (default 20%)
 - **Daily summary** — 7am: price range, best charging windows, potential savings
 - Push notifications via **ntfy.sh** (primary) or Signal/CallMeBot (fallback)
-- Alerts page shows live state (spike/cheap/green/charging) and test button
-- All alert toggles and thresholds configurable directly on the Alerts page
+- All alert toggles and thresholds configurable with live current-state badge on Alerts page
 
 ### Battery Control (`/battery`)
 - Live status: SOC, charge/discharge rate, grid import
@@ -101,8 +102,9 @@ On first run a default `admin` / `amber` account is created — log in and chang
 
 ### Preferences (`/preferences`)
 - Hardware config: battery capacity/SOC/charge rate, EV capacity/rate/target SOC
+- Solar forecast config: lat/lon, panel tilt, azimuth, system size (kWp)
 - Location/state (used for renewables data)
-- Notification: ntfy.sh topic
+- Notification: ntfy.sh topic (also editable on Alerts page)
 - Password change
 
 ### JSON API
