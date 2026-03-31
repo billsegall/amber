@@ -235,7 +235,7 @@ class FoxESSClient:
     # ── Force charge time windows ─────────────────────────────────────────────
 
     def get_force_charge(self, sn: str) -> dict | None:
-        result = self._post("/op/v0/device/battery/forceChargeTime/get", {"sn": sn}, oauth=True)
+        result = self._post("/op/v0/device/battery/forceChargeTime/get", {"sn": sn}, oauth=False)
         log.info("FOX ESS get_force_charge raw result: %s", result)
         return result
 
@@ -245,7 +245,7 @@ class FoxESSClient:
     # ── Work mode & SOC settings ──────────────────────────────────────────────
 
     def get_settings(self, sn: str, keys: list[str]) -> dict | None:
-        result = self._post("/op/v0/device/setting/query", {"sn": sn, "keys": keys}, oauth=True)
+        result = self._post("/op/v0/device/setting/query", {"sn": sn, "keys": keys}, oauth=False)
         if not result:
             return None
         return {item["key"]: item.get("value") for item in result}
