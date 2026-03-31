@@ -647,6 +647,27 @@ def foxess_oauth():
                            error=error)
 
 
+@app.route("/foxess-auth/callback")
+@login_required
+def foxess_oauth_callback():
+    """FOX ESS redirects here after the user approves access."""
+    err  = request.args.get("error")
+    code = request.args.get("code", "").strip()
+    if err:
+        flash(f"FOX ESS authorisation denied: {err}", "danger")
+        return redirect(url_for("foxess_oauth"))
+    if not code:
+        flash("No authorisation code in callback — try again.", "danger")
+        return redirect(url_for("foxess_oauth"))
+    if exchange_code_for_tokens(code):
+        _cache.pop("bat_force_charge", None)
+        _cache.pop("bat_settings", None)
+        flash("FOX ESS device control connected!", "success")
+        return redirect(url_for("battery_control"))
+    flash("Token exchange failed — check the server log.", "danger")
+    return redirect(url_for("foxess_oauth"))
+
+
 # ── JSON API ──────────────────────────────────────────────────────────────────
 @app.route("/api/prices/current")
 @login_required

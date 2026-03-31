@@ -47,29 +47,10 @@
 
     {% if auth_url %}
     <p class="small" style="color:#c0cfe0">
-      FOX ESS uses OAuth to grant device control access. Follow these steps:
+      Click the button below to authorise on the FOX ESS portal. You'll be redirected back here automatically.
     </p>
-    <ol class="small" style="color:#c0cfe0">
-      <li class="mb-2">
-        Click the link below to authorise on the FOX ESS portal:
-        <br>
-        <a href="{{ auth_url }}" target="_blank" class="text-info" style="word-break:break-all">{{ auth_url }}</a>
-      </li>
-      <li class="mb-2">
-        After approving, your browser will be redirected to <code>localhost</code> (which will fail to load —
-        that's expected). Copy the <code>code=…</code> value from the address bar.
-      </li>
-      <li>Paste it below and click Authorise.</li>
-    </ol>
-
-    <form method="POST">
-      <div class="mb-2">
-        <input type="text" name="code" class="form-control form-control-sm"
-               placeholder="Paste authorization code here" autocomplete="off">
-      </div>
-      <button type="submit" class="btn btn-sm btn-success">Authorise</button>
-      <a href="{{ url_for('battery_control') }}" class="btn btn-sm btn-secondary ms-2">Cancel</a>
-    </form>
+    <a href="{{ auth_url }}" class="btn btn-sm btn-success">Authorise with FOX ESS</a>
+    <a href="{{ url_for('battery_control') }}" class="btn btn-sm btn-secondary ms-2">Cancel</a>
     {% else %}
       <div class="alert alert-warning py-2 px-3 small">
         FOXESS_CLIENT_ID is not configured. Add it to your <code>.env</code> file.
