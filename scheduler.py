@@ -11,8 +11,10 @@ from apscheduler.triggers.cron import CronTrigger
 
 from amber_client import get_client, get_site_id
 from foxess_client import get_client as get_foxess_client, get_device_sn
+from fronius_client import get_power_flow_safe
 from alerts import check_and_alert, send_daily_summary, _load_state, _save_state
 from optimizer import analyse, HardwareConfig
+from solar_forecast_client import get_forecast
 import db
 
 log = logging.getLogger(__name__)
@@ -114,6 +116,43 @@ def _daily_summary():
         log.error("Daily summary failed: %s", e)
 
 
+def _record_solar_actual():
+    """Called once daily at 21:30 AEST. Records today's actual generation and forecast."""
+    try:
+        prefs = db.get_default_preferences()
+        today = datetime.now().strftime("%Y-%m-%d")
+
+        # Actual generation from Fronius
+        solar = get_power_flow_safe()
+        actual_kwh = None
+        if solar and solar.get("e_day_wh") is not None:
+            actual_kwh = round((solar["e_day_wh"] or 0) / 1000.0, 3)
+            log.info("Solar actual for %s: %.2f kWh", today, actual_kwh)
+        else:
+            log.warning("Fronius unavailable — skipping solar actual for %s", today)
+
+        # Forecast from forecast.solar (to pair with actual)
+        forecast_kwh = None
+        try:
+            fc = get_forecast(
+                lat=float(prefs.get("solar_lat", -27.47)),
+                lon=float(prefs.get("solar_lon",  153.02)),
+                tilt=int(prefs.get("solar_tilt",  20)),
+                azimuth=int(prefs.get("solar_azimuth", 0)),
+                kwp=float(prefs.get("solar_kwp",  5.6)),
+            )
+            if fc:
+                forecast_kwh = fc["today_kwh"]
+        except Exception as e:
+            log.warning("forecast.solar unavailable in _record_solar_actual: %s", e)
+
+        if actual_kwh is not None or forecast_kwh is not None:
+            db.upsert_solar_actual(today, actual_kwh=actual_kwh, forecast_kwh=forecast_kwh)
+
+    except Exception as e:
+        log.error("_record_solar_actual failed: %s", e)
+
+
 def start(app):
     """Start the background scheduler. Safe to call from main process only."""
     global _scheduler
@@ -127,6 +166,7 @@ def start(app):
     _scheduler = BackgroundScheduler(timezone="Australia/Brisbane")
     _scheduler.add_job(_poll, IntervalTrigger(seconds=poll_interval), id="poll", max_instances=1)
     _scheduler.add_job(_daily_summary, CronTrigger(hour=summary_hour, minute=0), id="daily_summary")
+    _scheduler.add_job(_record_solar_actual, CronTrigger(hour=21, minute=30), id="solar_actual")
     _scheduler.start()
 
     log.info("Scheduler started: poll every %ds, daily summary at %02d:00", poll_interval, summary_hour)
