@@ -74,6 +74,7 @@ class FoxESSClient:
     def _post_ok(self, path: str, payload: dict) -> tuple[bool, str]:
         """POST and return (True, "") if errno == 0, else (False, error_msg)."""
         try:
+            log.info("FOX ESS POST %s payload: %s", path, payload)
             r = requests.post(
                 f"{BASE_URL}{path}",
                 json=payload,
@@ -82,6 +83,7 @@ class FoxESSClient:
             )
             r.raise_for_status()
             body = r.json()
+            log.info("FOX ESS POST %s response: %s", path, body)
             errno = body.get("errno", -1)
             msg = body.get("msg", "")
             if errno != 0:
@@ -133,7 +135,9 @@ class FoxESSClient:
 
     def get_force_charge(self, sn: str) -> dict | None:
         """Return force charge time config (two periods)."""
-        return self._post("/op/v0/device/battery/forceChargeTime/get", {"sn": sn})
+        result = self._post("/op/v0/device/battery/forceChargeTime/get", {"sn": sn})
+        log.info("FOX ESS get_force_charge raw result: %s", result)
+        return result
 
     def set_force_charge(self, sn: str, data: dict) -> tuple[bool, str]:
         """
