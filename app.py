@@ -617,6 +617,7 @@ def battery_control():
         errors=errors,
         success=success,
         foxess_available=bool(fc and sn),
+        control_available=bool(settings is not None or force_charge is not None),
     )
 
 
