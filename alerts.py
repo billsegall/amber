@@ -198,6 +198,7 @@ def check_and_alert(current: dict, feedin_current: dict | None,
                    f"Current price: {price:.1f}¢/kWh ({descriptor})")
             if send_notification(msg, title="Amber — Battery low", priority="high"):
                 sent.append(msg)
+            state["was_soc_low"] = True
         elif was_low and bat_soc >= threshold + 5:
             state["was_soc_low"] = False
         else:

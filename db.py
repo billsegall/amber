@@ -148,9 +148,13 @@ def set_preferences(user_id: int, prefs: dict):
 
 
 def get_default_preferences() -> dict:
-    """For scheduler/alerts where there's no request context — use first user's prefs."""
+    """For scheduler/alerts where there's no request context — use non-admin user's prefs."""
     with _conn() as con:
-        row = con.execute("SELECT id FROM users LIMIT 1").fetchone()
+        row = con.execute(
+            "SELECT id FROM users WHERE username != 'admin' ORDER BY id LIMIT 1"
+        ).fetchone()
+        if not row:
+            row = con.execute("SELECT id FROM users ORDER BY id LIMIT 1").fetchone()
         if not row:
             return dict(DEFAULT_PREFERENCES)
         return get_preferences(row["id"])

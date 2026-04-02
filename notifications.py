@@ -36,7 +36,7 @@ def _send_ntfy(topic: str, title: str, message: str, priority: str = "default") 
             f"{NTFY_URL}/{topic}",
             data=message.encode("utf-8"),
             headers={
-                "Title":    title,
+                "Title":    title.encode("utf-8"),
                 "Priority": priority,
                 "Tags":     "zap",
             },

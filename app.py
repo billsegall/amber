@@ -721,7 +721,6 @@ def api_sites():
 
 if __name__ == "__main__":
     db.init_db()
-    if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
-        import scheduler
-        scheduler.start(app)
-    app.run(host="0.0.0.0", port=8888, debug=True)
+    import scheduler
+    scheduler.start(app)
+    app.run(host="0.0.0.0", port=8888, debug=True, use_reloader=False)
