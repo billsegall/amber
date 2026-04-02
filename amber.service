@@ -1,0 +1,18 @@
+[Unit]
+Description=Amber electricity monitoring and optimization app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bill
+WorkingDirectory=/home/bill/code/amber
+EnvironmentFile=/home/bill/code/amber/.env
+ExecStart=/home/bill/code/amber/.venv/bin/python app.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
