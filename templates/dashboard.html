@@ -222,10 +222,13 @@
             </div>
           </div>
           <div class="mb-1">
-            <label class="form-label text-secondary small mb-0">EV SOC</label>
+            <label class="form-label text-secondary small mb-0">EV SOC
+              {% if zeekr_soc is not none %}<span class="badge bg-success ms-1" style="font-size:0.55rem">live</span>{% endif %}
+            </label>
             <div class="input-group input-group-sm">
               <input type="number" name="ev_soc" class="form-control bg-dark text-light border-secondary"
-                     min="0" max="100" step="1" value="{{ ev_soc|int }}">
+                     min="0" max="100" step="1" value="{{ ev_soc|int }}"
+                     {% if zeekr_soc is not none %}readonly{% endif %}>
               <span class="input-group-text bg-dark text-secondary border-secondary">%</span>
             </div>
           </div>
@@ -281,7 +284,9 @@
     {# EV analysis #}
     <div class="col-12 col-md-4">
       <div class="card p-2 h-100">
-        <div class="card-title mb-1">EV Analysis</div>
+        <div class="card-title mb-1">EV Analysis
+          {% if zeekr_soc is not none %}<span class="badge bg-success ms-1" style="font-size:0.55rem">live · Zeekr</span>{% endif %}
+        </div>
         {% set ea = analysis.ev %}
         {% set ew = ea.best_window %}
         <div class="mb-1">

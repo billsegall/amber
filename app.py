@@ -14,6 +14,7 @@ from fronius_client import get_power_flow_safe
 from foxess_client import get_client as get_foxess_client, get_device_sn, \
     get_auth_url as foxess_auth_url, exchange_code_for_tokens, has_oauth_tokens
 from solar_forecast_client import get_forecast as _solar_get_forecast
+from zeekr_client import get_charge_level as zeekr_get_soc
 from alerts import _load_state, _save_state
 import db
 
@@ -221,11 +222,20 @@ def dashboard():
             pass
 
         # Derive battery SOC from realtime data when available
+        zeekr_soc = None
         if request.method == "GET":
             if foxess and foxess.get("SoC") is not None:
                 battery_soc = float(foxess["SoC"])
                 state["battery_soc"] = battery_soc
                 _save_state(state)
+            try:
+                zeekr_soc = zeekr_get_soc()
+                if zeekr_soc is not None:
+                    ev_soc = zeekr_soc
+                    state["ev_soc"] = ev_soc
+                    _save_state(state)
+            except Exception:
+                pass
 
         solar, s5 = _ensure_fresh("solar", get_power_flow_safe)
         data_stale = any([s1, s2, s3, s4, s5])
@@ -315,6 +325,7 @@ def dashboard():
             solar_offline=solar_offline,
             solar_forecast=solar_forecast,
             foxess=foxess,
+            zeekr_soc=zeekr_soc,
             usage_daily=usage_daily,
             signal_configured=is_configured(),
             descriptor_colors=DESCRIPTOR_COLORS,
