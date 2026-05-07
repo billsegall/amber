@@ -43,6 +43,9 @@ def _maybe_update_schedule(fc, sn: str, current_schedule: dict | None,
                            foxess_realtime: dict, forecast: list, prefs: dict):
     global _last_schedule
 
+    if not os.environ.get("FOXESS_AUTO_SCHEDULE", "").strip().lower() in ("1", "true", "yes"):
+        return
+
     if not current_schedule:
         return
 
