@@ -225,7 +225,7 @@ class FoxESSClient:
     def get_realtime(self, sn: str) -> dict | None:
         variables = ["SoC", "batChargePower", "batDischargePower",
                      "generationPower", "loadsPower", "gridConsumptionPower",
-                     "feedinPower", "pvPower"]
+                     "feedinPower", "pvPower", "workMode"]
         result = self._post("/op/v0/device/real/query", {"sn": sn, "variables": variables})
         if not result:
             return None
@@ -243,6 +243,11 @@ class FoxESSClient:
         return self._post_ok("/op/v0/device/battery/forceChargeTime/set", {"sn": sn, **data}, oauth=False)
 
     # ── Work mode & SOC settings ──────────────────────────────────────────────
+
+    def get_schedule(self, sn: str) -> dict | None:
+        result = self._post("/op/v0/device/scheduler/get", {"sn": sn}, oauth=False)
+        log.info("FOX ESS scheduler/get raw response: %s", result)
+        return result
 
     def get_settings(self, sn: str, keys: list[str]) -> dict | None:
         result = self._post("/op/v0/device/setting/query", {"sn": sn, "keys": keys}, oauth=False)

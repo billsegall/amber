@@ -50,10 +50,13 @@ def _poll():
                 if sn:
                     foxess_realtime = fc.get_realtime(sn)
                     if foxess_realtime:
-                        log.info("FOX ESS: SoC=%.0f%% charge=%.2fkW discharge=%.2fkW",
+                        log.info("FOX ESS: SoC=%.0f%% charge=%.2fkW discharge=%.2fkW workMode=%s",
                                  foxess_realtime.get("SoC", 0),
                                  foxess_realtime.get("batChargePower", 0) or 0,
-                                 foxess_realtime.get("batDischargePower", 0) or 0)
+                                 foxess_realtime.get("batDischargePower", 0) or 0,
+                                 foxess_realtime.get("workMode", "unknown"))
+                        schedule = fc.get_schedule(sn)
+                        log.info("FOX ESS scheduler/get: %s", schedule)
                     else:
                         log.warning("FOX ESS returned no data")
         except Exception as e:

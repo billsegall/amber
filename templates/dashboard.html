@@ -134,6 +134,9 @@
           {% else %}
             <div class="text-secondary small mt-1">idle</div>
           {% endif %}
+          {% if foxess.workMode %}
+            <div class="text-secondary small mt-1" style="font-size:0.7rem">{{ foxess.workMode }}</div>
+          {% endif %}
           <div class="stat-label mt-1">live · FOX ESS</div>
         {% else %}
           <div class="stat-value text-secondary">{{ battery_soc|int }}<span class="price-unit">%</span></div>
