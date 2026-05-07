@@ -210,14 +210,16 @@ def dashboard():
         past, current, forecast            = _split_intervals(general   or [])
         _, feedin_current, feedin_forecast = _split_intervals(feedin_iv or [])
 
-        # FOX ESS — single realtime call covers both SOC and power flow
+        # FOX ESS — realtime + schedule
         foxess, s4 = None, False
+        foxess_schedule = None
         try:
             fc = get_foxess_client()
             if fc:
                 sn = get_device_sn()
                 if sn:
-                    foxess, s4 = _ensure_fresh("foxess", fc.get_realtime, sn)
+                    foxess, s4          = _ensure_fresh("foxess",          fc.get_realtime, sn)
+                    foxess_schedule, _  = _ensure_fresh("foxess_schedule", fc.get_schedule, sn)
         except Exception:
             pass
 
@@ -325,6 +327,7 @@ def dashboard():
             solar_offline=solar_offline,
             solar_forecast=solar_forecast,
             foxess=foxess,
+            foxess_schedule=foxess_schedule,
             zeekr_soc=zeekr_soc,
             usage_daily=usage_daily,
             signal_configured=is_configured(),
