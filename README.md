@@ -126,11 +126,12 @@ All data available as JSON for future mobile clients:
 - Direct battery control: force charge, work mode, min SOC ✓
 - EV charger: OCPP, not yet online
 
-### Stage 5 — Automated Optimization
-- Automated EV charging scheduler: charge during cheapest forecast window
-- Battery charge/discharge optimization: charge cheap, export/hold when expensive
-- Configurable constraints: minimum reserve, max charge rate, departure time
-- Backtesting: replay historical prices to evaluate strategy savings
+### Stage 5 — Automated Optimization ✓ (battery automation complete)
+- Automated battery schedule from price forecast ✓ — ForceCharge during extremelyLow/veryLow, ForceDischarge during spike, SelfUse otherwise
+- Schedule written every 5 min via FOX ESS scheduler API; detects external changes (Amber VPP) and defers
+- VPP-aware: reads active schedule group to determine current workMode without extra API calls
+- Automated EV charging scheduler: charge during cheapest forecast window (not yet implemented)
+- Backtesting: replay historical prices to evaluate strategy savings (not yet implemented)
 
 ### Stage 6 — Mobile Apps
 - Android app (React Native or native Kotlin)
