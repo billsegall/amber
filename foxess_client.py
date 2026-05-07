@@ -204,6 +204,9 @@ class FoxESSClient:
             log.info("FOX ESS POST %s payload: %s", path, payload)
             r = requests.post(f"{BASE_URL}{path}", json=payload, headers=hdrs, timeout=10)
             r.raise_for_status()
+            if not r.content:
+                log.info("FOX ESS POST %s → empty body (treating as success)", path)
+                return True, ""
             body = r.json()
             log.info("FOX ESS POST %s response: %s", path, body)
             errno = body.get("errno", -1)
@@ -245,9 +248,18 @@ class FoxESSClient:
     # ── Work mode & SOC settings ──────────────────────────────────────────────
 
     def get_schedule(self, sn: str) -> dict | None:
-        result = self._post("/op/v0/device/scheduler/get", {"sn": sn}, oauth=False)
-        log.info("FOX ESS scheduler/get raw response: %s", result)
+        result = self._post("/op/v0/device/scheduler/get", {"deviceSN": sn}, oauth=False)
+        log.info("FOX ESS scheduler/get: %s", result)
         return result
+
+    def set_schedule(self, sn: str, groups: list[dict], enabled: bool = True) -> tuple[bool, str]:
+        payload = {
+            "deviceSN": sn,
+            "enable":   1 if enabled else 0,
+            "groups":   groups,
+            "properties": {},
+        }
+        return self._post_ok("/op/v0/device/scheduler/set", payload, oauth=False)
 
     def get_settings(self, sn: str, keys: list[str]) -> dict | None:
         result = self._post("/op/v0/device/setting/query", {"sn": sn, "keys": keys}, oauth=False)

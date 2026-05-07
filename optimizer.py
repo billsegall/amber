@@ -219,3 +219,122 @@ def _window_to_dict(w: ChargingWindow | None) -> dict | None:
         "descriptor": w.descriptor,
         "num_intervals": len(w.intervals),
     }
+
+
+# ── FOX ESS scheduler ────────────────────────────────────────────────────────
+
+_CHARGE_DESCRIPTORS    = {"extremelyLow", "veryLow"}
+_DISCHARGE_DESCRIPTORS = {"spike"}
+
+_BLANK_GROUP = {
+    "startHour": 0, "startMinute": 0,
+    "endHour": 0,   "endMinute": 0,
+    "workMode": "SelfUse",
+    "fdPwr": 0, "fdSoc": 100, "minSocOnGrid": 10,
+    "enable": 0,
+}
+
+
+def _interval_to_abs_minutes(iv: dict) -> tuple[int, int] | None:
+    """Return (start_min, end_min) as minutes since today's local midnight.
+    Tomorrow's intervals have start_min >= 1440. Returns None on parse error."""
+    from datetime import datetime, timezone, timedelta
+    aest = timezone(timedelta(hours=10))
+    start_str = iv.get("startTime") or iv.get("start_time", "")
+    end_str   = iv.get("endTime")   or iv.get("end_time",   "")
+    def _parse(s: str) -> datetime | None:
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(aest)
+        except Exception:
+            return None
+    s_dt = _parse(start_str)
+    e_dt = _parse(end_str)
+    if not s_dt or not e_dt:
+        return None
+    midnight = datetime.now(aest).replace(hour=0, minute=0, second=0, microsecond=0)
+    s_min = int((s_dt - midnight).total_seconds() / 60)
+    e_min = int((e_dt - midnight).total_seconds() / 60)
+    return s_min, e_min
+
+
+def plan_battery_schedule(forecast: list[dict], battery_soc_pct: float,
+                          hw: HardwareConfig) -> list[dict]:
+    """
+    Build up to 8 FOX ESS scheduler groups from the price forecast.
+
+    Logic:
+    - extremelyLow/veryLow → ForceCharge (if battery not already full)
+    - spike → ForceDischarge (if enough charge to warrant it)
+    - everything else → SelfUse
+
+    Contiguous intervals with the same mode are merged into one group.
+    Groups spanning midnight are split at 00:00.
+    Always returns exactly 8 groups (padding with disabled blanks).
+    """
+    from datetime import datetime
+
+    battery_full   = battery_soc_pct >= 95
+    discharge_ok   = battery_soc_pct > hw.battery_min_soc_pct + 15
+    charge_kw_w    = int(hw.battery_max_charge_kw    * 1000)
+    discharge_kw_w = int(hw.battery_max_discharge_kw * 1000)
+
+    # Assign desired mode to each forecast interval (today's intervals only)
+    tagged: list[tuple[int, int, str, int]] = []  # (start_min, end_min, mode, pwr_w)
+    for iv in forecast:
+        mins = _interval_to_abs_minutes(iv)
+        if mins is None:
+            continue
+        s, e = mins
+        if s >= 1440:  # tomorrow — skip
+            continue
+        e = min(e, 1440)  # clamp to end of today
+        desc = iv.get("descriptor", "neutral")
+        if desc in _CHARGE_DESCRIPTORS and not battery_full:
+            mode = "ForceCharge"
+            pwr  = charge_kw_w
+        elif desc in _DISCHARGE_DESCRIPTORS and discharge_ok:
+            mode = "ForceDischarge"
+            pwr  = discharge_kw_w
+        else:
+            mode = "SelfUse"
+            pwr  = 0
+        tagged.append((s, e, mode, pwr))
+
+    if not tagged:
+        return [dict(_BLANK_GROUP) for _ in range(8)]
+
+    # Merge contiguous intervals with same (mode, pwr)
+    merged: list[tuple[int, int, str, int]] = []
+    cur_s, cur_e, cur_m, cur_p = tagged[0]
+    for s, e, m, p in tagged[1:]:
+        if m == cur_m and p == cur_p and s == cur_e:
+            cur_e = e
+        else:
+            merged.append((cur_s, cur_e, cur_m, cur_p))
+            cur_s, cur_e, cur_m, cur_p = s, e, m, p
+    merged.append((cur_s, cur_e, cur_m, cur_p))
+
+    # Convert to FOX ESS group dicts, cap at 8
+    # end_min==1440 → 24:00 which FOX ESS doesn't accept; use 23:59 instead
+    groups: list[dict] = []
+    for s, e, m, p in merged[:8]:
+        e_clamped = min(e, 1439)
+        if s >= e_clamped:
+            continue
+        groups.append({
+            "startHour":    s          // 60,
+            "startMinute":  s          %  60,
+            "endHour":      e_clamped  // 60,
+            "endMinute":    e_clamped  %  60,
+            "workMode":     m,
+            "fdPwr":        p,
+            "fdSoc":        100,
+            "minSocOnGrid": int(hw.battery_min_soc_pct),
+            "enable":       1,
+        })
+
+    # Pad to 8
+    while len(groups) < 8:
+        groups.append(dict(_BLANK_GROUP))
+
+    return groups

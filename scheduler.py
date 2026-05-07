@@ -13,13 +13,70 @@ from amber_client import get_client, get_site_id
 from foxess_client import get_client as get_foxess_client, get_device_sn
 from fronius_client import get_power_flow_safe
 from alerts import check_and_alert, send_daily_summary, _load_state, _save_state
-from optimizer import analyse, HardwareConfig
+from optimizer import analyse, plan_battery_schedule, HardwareConfig
 from solar_forecast_client import get_forecast
 import db
 
 log = logging.getLogger(__name__)
 
-_scheduler = None
+_scheduler     = None
+_last_schedule = None  # groups list we last wrote; None = we haven't written yet
+
+
+def _active_work_mode(schedule: dict | None) -> str:
+    """Return the workMode of the currently-active schedule group, or 'SelfUse'."""
+    if not schedule:
+        return "unknown"
+    now = datetime.now()
+    now_mins = now.hour * 60 + now.minute
+    for g in schedule.get("groups", []):
+        if not g.get("enable"):
+            continue
+        start = g["startHour"] * 60 + g["startMinute"]
+        end   = g["endHour"]   * 60 + g["endMinute"]
+        if start <= now_mins < end:
+            return g.get("workMode", "SelfUse")
+    return "SelfUse"
+
+
+def _maybe_update_schedule(fc, sn: str, current_schedule: dict | None,
+                           foxess_realtime: dict, forecast: list, prefs: dict):
+    global _last_schedule
+
+    if not current_schedule:
+        return
+
+    current_groups = current_schedule.get("groups", [])
+
+    # If the current schedule differs from what we last wrote, VPP (or user) changed it.
+    # Don't overwrite for this poll cycle — let the external control finish.
+    if _last_schedule is not None and current_groups != _last_schedule:
+        log.info("FOX ESS schedule changed externally — skipping write this cycle")
+        _last_schedule = current_groups
+        return
+
+    battery_soc = float(foxess_realtime.get("SoC") or 50)
+    state = _load_state()
+    hw = HardwareConfig(
+        battery_capacity_kwh     = float(prefs.get("battery_capacity_kwh", 42.0)),
+        battery_min_soc_pct      = float(prefs.get("battery_min_soc_pct", 10.0)),
+        battery_max_charge_kw    = float(prefs.get("battery_max_charge_kw", 10.0)),
+        battery_max_discharge_kw = float(prefs.get("battery_max_discharge_kw", 10.0)),
+        ev_capacity_kwh          = float(prefs.get("ev_capacity_kwh", 100.0)),
+        ev_charge_kw             = float(prefs.get("ev_charge_kw", 7.0)),
+    )
+
+    new_groups = plan_battery_schedule(forecast, battery_soc, hw)
+    if new_groups == _last_schedule:
+        log.info("FOX ESS schedule unchanged — skipping write")
+        return
+
+    ok, err = fc.set_schedule(sn, new_groups)
+    if ok:
+        log.info("FOX ESS schedule updated: %s", new_groups)
+        _last_schedule = new_groups
+    else:
+        log.warning("FOX ESS schedule write failed: %s", err)
 
 
 def _poll():
@@ -50,13 +107,15 @@ def _poll():
                 if sn:
                     foxess_realtime = fc.get_realtime(sn)
                     if foxess_realtime:
+                        schedule = fc.get_schedule(sn)
+                        work_mode = _active_work_mode(schedule)
+                        foxess_realtime["workMode"] = work_mode
                         log.info("FOX ESS: SoC=%.0f%% charge=%.2fkW discharge=%.2fkW workMode=%s",
                                  foxess_realtime.get("SoC", 0),
                                  foxess_realtime.get("batChargePower", 0) or 0,
                                  foxess_realtime.get("batDischargePower", 0) or 0,
-                                 foxess_realtime.get("workMode", "unknown"))
-                        schedule = fc.get_schedule(sn)
-                        log.info("FOX ESS scheduler/get: %s", schedule)
+                                 work_mode)
+                        _maybe_update_schedule(fc, sn, schedule, foxess_realtime, forecast, prefs)
                     else:
                         log.warning("FOX ESS returned no data")
         except Exception as e:
