@@ -49,12 +49,20 @@
         {% endif %}
         <li class="nav-item"><a href="/battery" class="nav-link">Battery</a></li>
         <li class="nav-item"><a href="/alerts" class="nav-link">Alerts</a></li>
-        <li class="nav-item"><a href="/preferences" class="nav-link">Preferences</a></li>
         {% if data_stale %}
           <li class="nav-item"><span class="nav-link text-secondary small fst-italic" id="staleTag">Updating…</span></li>
         {% endif %}
-        <li class="nav-item"><span class="nav-link text-secondary small">{{ current_user.username }}</span></li>
-        <li class="nav-item"><a href="/logout" class="nav-link">Sign out</a></li>
+        <li class="nav-item"><a href="/" class="nav-link text-secondary" title="Refresh">↻</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle text-secondary small" href="#" role="button" data-bs-toggle="dropdown">
+            {{ current_user.username }}
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+            <li><a class="dropdown-item" href="/preferences">Preferences</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/logout">Sign out</a></li>
+          </ul>
+        </li>
       </ul>
     </div>
   </div>
