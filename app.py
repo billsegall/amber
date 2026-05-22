@@ -209,6 +209,15 @@ def dashboard():
 
         past, current, forecast            = _split_intervals(general   or [])
         _, feedin_current, feedin_forecast = _split_intervals(feedin_iv or [])
+        # Amber returns feedIn perKwh as negative (it's a credit) — flip for display/logic
+        if feedin_current:
+            feedin_current = {**feedin_current,
+                              "perKwh":     -(feedin_current.get("perKwh")     or 0),
+                              "spotPerKwh": -(feedin_current.get("spotPerKwh") or 0)}
+        feedin_forecast = [{**iv,
+                            "perKwh":     -(iv.get("perKwh")     or 0),
+                            "spotPerKwh": -(iv.get("spotPerKwh") or 0)}
+                           for iv in feedin_forecast]
 
         # FOX ESS — realtime + schedule
         foxess, s4 = None, False
