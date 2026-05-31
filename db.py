@@ -29,11 +29,12 @@ DEFAULT_PREFERENCES = {
     "ev_charge_kw": 7.0,
     "ev_target_soc": 85.0,
     # Solar forecast config
-    "solar_lat":     -27.47,
-    "solar_lon":     153.02,
-    "solar_tilt":    20,
-    "solar_azimuth": 0,
-    "solar_kwp":     5.6,
+    "solar_lat":          -27.47,
+    "solar_lon":          153.02,
+    "solar_tilt":         20,
+    "solar_azimuth":      180,
+    "solar_kwp":          5.6,
+    "solar_shade_factor": 1.0,
     # Notifications
     "ntfy_topic": "",
     # Alerts

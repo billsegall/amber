@@ -203,11 +203,12 @@ def _record_solar_actual():
                 lat=float(prefs.get("solar_lat", -27.47)),
                 lon=float(prefs.get("solar_lon",  153.02)),
                 tilt=int(prefs.get("solar_tilt",  20)),
-                azimuth=int(prefs.get("solar_azimuth", 0)),
+                azimuth=int(prefs.get("solar_azimuth", 180)),
                 kwp=float(prefs.get("solar_kwp",  5.6)),
             )
             if fc:
-                forecast_kwh = fc["today_kwh"]
+                shade = float(prefs.get("solar_shade_factor", 1.0))
+                forecast_kwh = round(fc["today_kwh"] * shade, 2)
         except Exception as e:
             log.warning("forecast.solar unavailable in _record_solar_actual: %s", e)
 

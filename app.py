@@ -260,7 +260,7 @@ def dashboard():
                     lat=float(prefs.get("solar_lat", -27.47)),
                     lon=float(prefs.get("solar_lon",  153.02)),
                     tilt=int(prefs.get("solar_tilt",  20)),
-                    azimuth=int(prefs.get("solar_azimuth", 0)),
+                    azimuth=int(prefs.get("solar_azimuth", 180)),
                     kwp=float(prefs.get("solar_kwp",  5.6)),
                 )
                 _cache["solar_forecast"] = {"ts": time.time(), "val": solar_forecast}
@@ -269,7 +269,8 @@ def dashboard():
         else:
             solar_forecast = _sf_entry["val"]
         if solar_forecast:
-            correction = db.get_solar_correction_factor()
+            shade  = float(prefs.get("solar_shade_factor", 1.0))
+            correction = db.get_solar_correction_factor() * shade
             if correction != 1.0:
                 solar_forecast = dict(solar_forecast)
                 solar_forecast["today_kwh"]    = round(solar_forecast["today_kwh"]    * correction, 2)
@@ -473,8 +474,9 @@ def preferences():
                 "solar_lat":               _float("solar_lat", -27.47),
                 "solar_lon":               _float("solar_lon",  153.02),
                 "solar_tilt":              _int("solar_tilt",   20),
-                "solar_azimuth":           _int("solar_azimuth", 0),
+                "solar_azimuth":           _int("solar_azimuth", 180),
                 "solar_kwp":               _float("solar_kwp",  5.6),
+                "solar_shade_factor":      _float("solar_shade_factor", 1.0),
             })
             # Bust cached forecast so next load uses updated params
             _cache.pop("solar_forecast", None)
