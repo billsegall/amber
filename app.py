@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from dotenv import load_dotenv
-from amber_client import get_client, get_site_id
+from amber_client import get_client, get_site_id, classify_descriptor
 from optimizer import analyse, HardwareConfig
 from notifications import send_notification, is_configured, get_method
 from fronius_client import get_power_flow_safe
@@ -209,11 +209,13 @@ def dashboard():
 
         past, current, forecast            = _split_intervals(general   or [])
         feedin_past, feedin_current, feedin_forecast = _split_intervals(feedin_iv or [])
-        # Amber returns feedIn perKwh as negative (it's a credit) — flip for display/logic
+        # Amber returns feedIn perKwh as negative (it's a credit) — flip then reclassify
         def _negate(iv):
+            p = -(iv.get("perKwh") or 0)
             return {**iv,
-                    "perKwh":     -(iv.get("perKwh")     or 0),
-                    "spotPerKwh": -(iv.get("spotPerKwh") or 0)}
+                    "perKwh":     p,
+                    "spotPerKwh": -(iv.get("spotPerKwh") or 0),
+                    "descriptor": classify_descriptor(p)}
         feedin_past     = [_negate(iv) for iv in feedin_past]
         if feedin_current:
             feedin_current = _negate(feedin_current)

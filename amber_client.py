@@ -6,6 +6,21 @@ BASE_URL = "https://api.amber.com.au/v1"
 RENEWABLES_URL = "https://api.amber.com.au/v1"
 
 
+def classify_descriptor(price: float) -> str:
+    """Map a ¢/kWh price to our own descriptor, ignoring Amber's dynamic thresholds."""
+    if price <= 6:   return "extremelyLow"
+    if price <= 12:  return "veryLow"
+    if price <= 20:  return "low"
+    if price <= 30:  return "neutral"
+    if price <= 50:  return "high"
+    return "spike"
+
+
+def _reclassify(intervals: list[dict]) -> list[dict]:
+    return [{**iv, "descriptor": classify_descriptor(iv.get("perKwh") or 0)}
+            for iv in intervals]
+
+
 class AmberClient:
     def __init__(self, token: str):
         self.session = requests.Session()
@@ -26,6 +41,8 @@ class AmberClient:
         intervals = r.json()
         if channel_type:
             intervals = [iv for iv in intervals if iv.get("channelType") == channel_type]
+        if channel_type != "feedIn":
+            intervals = _reclassify(intervals)
         return intervals
 
     def get_historical_prices(self, site_id: str, start_date: date, end_date: date) -> list[dict]:

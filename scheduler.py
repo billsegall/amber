@@ -9,7 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
-from amber_client import get_client, get_site_id
+from amber_client import get_client, get_site_id, classify_descriptor
 from foxess_client import get_client as get_foxess_client, get_device_sn
 from fronius_client import get_power_flow_safe
 from alerts import check_and_alert, send_daily_summary, _load_state, _save_state
@@ -96,8 +96,15 @@ def _poll():
         renewables = client.get_renewables(state=prefs.get("location_state", "QLD"),
                                            next_intervals=0, previous_intervals=0)
 
-        current        = next((iv for iv in general    if iv.get("type") == "CurrentInterval"), None)
-        feedin_current = next((iv for iv in feedin     if iv.get("type") == "CurrentInterval"), None)
+        current        = next((iv for iv in general if iv.get("type") == "CurrentInterval"), None)
+        _fi_raw        = next((iv for iv in feedin  if iv.get("type") == "CurrentInterval"), None)
+        if _fi_raw:
+            _fi_p = -(_fi_raw.get("perKwh") or 0)
+            feedin_current = {**_fi_raw, "perKwh": _fi_p,
+                              "spotPerKwh": -(_fi_raw.get("spotPerKwh") or 0),
+                              "descriptor": classify_descriptor(_fi_p)}
+        else:
+            feedin_current = None
         renew_current  = next((iv for iv in renewables if iv.get("type") == "CurrentRenewable"), None)
         forecast       = [iv for iv in general if iv.get("type") == "ForecastInterval"]
 
