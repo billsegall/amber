@@ -375,7 +375,7 @@ def alerts_page():
 
         if action == "test":
             ok  = send_notification("🔔 Amber test notification — everything is working!", title="Amber Test")
-            msg = "Test notification sent." if ok else "Notification not configured — set ntfy topic first."
+            msg = "Test notification sent." if ok else "Notification failed — check Signal gateway / ntfy config and logs."
 
         elif action == "save_notify":
             prefs["ntfy_topic"] = request.form.get("ntfy_topic", "").strip()
@@ -406,7 +406,9 @@ def alerts_page():
             db.set_preferences(current_user.id, prefs)
             msg = "Alert settings saved."
 
-    notify_method = "ntfy" if prefs.get("ntfy_topic") else get_method()
+    notify_method = get_method()
+    if notify_method != "signal-gateway" and prefs.get("ntfy_topic"):
+        notify_method = "ntfy"
 
     alert_config = {
         "signal_configured":          is_configured(),

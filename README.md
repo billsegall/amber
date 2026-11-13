@@ -34,7 +34,8 @@ python app.py
 | `FOXESS_API_KEY` | FOX ESS cloud API private token (foxesscloud.com → profile → API Management) |
 | `FOXESS_DEVICE_SN` | FOX ESS inverter serial number (auto-discovered if blank) |
 | `FRONIUS_IP` | Local IP of Fronius Primo inverter |
-| `NTFY_TOPIC` | ntfy.sh topic for push notifications (install ntfy app, subscribe to topic) |
+| `SIGNAL_NOTIFY_TARGET` | Target alias for local Signal gateway (`/home/bill/code/signal`); primary when set |
+| `NTFY_TOPIC` | ntfy.sh topic for push notifications (fallback if gateway unset/failing) |
 | `SIGNAL_PHONE` | Phone number for Signal alerts via CallMeBot (alternative to ntfy) |
 | `SIGNAL_CALLMEBOT_APIKEY` | CallMeBot API key for Signal |
 | `ALERT_SPIKE` | Enable spike alerts (default: true) |

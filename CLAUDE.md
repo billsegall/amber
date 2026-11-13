@@ -44,11 +44,10 @@ Flask/Python web app for monitoring and optimizing electricity usage with Amber 
 - Inverter IP needs to be configured in `.env` as `FRONIUS_IP`
 
 ## Notifications
-- **Signal** (preferred): CallMeBot is simplest (free, personal use, no local daemon)
-  - Setup: add +34 644 52 74 88, send "I allow callmebot to send me messages", get apikey
-  - `GET https://signal.callmebot.com/signal/send.php?phone=+XX&apikey=KEY&text=MSG`
-  - `callmebot` Python library on PyPI
-- Future: email, SMS, other channels
+- **Signal gateway** (primary): local `signal_notify` package from `/home/bill/code/signal`
+  (pip install -e into `.venv`), enabled by `SIGNAL_NOTIFY_TARGET`. Sends as Bill's linked device.
+- **ntfy.sh** (fallback): used if gateway unset or a send fails. `NTFY_TOPIC`.
+- **CallMeBot** (last resort): `SIGNAL_PHONE` + `SIGNAL_CALLMEBOT_APIKEY`.
 
 ## UI / Frontend
 - **Charts**: Plotly (via plotly.js CDN or Flask)

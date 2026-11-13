@@ -61,6 +61,10 @@
   {# ── Notification delivery ── #}
   <div class="card mb-2 p-2">
     <div class="card-title mb-2">Notification Delivery</div>
+    {% if config.notify_method == "signal-gateway" %}
+      <div class="small mb-2">Signal gateway <span class="badge badge-on">active</span>
+        <span class="text-muted-sm">ntfy below is used only if the gateway fails</span></div>
+    {% endif %}
     <form method="POST">
       <input type="hidden" name="action" value="save_notify">
       <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">

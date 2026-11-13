@@ -1,5 +1,9 @@
 """
-Push notifications via ntfy.sh (primary) with Signal/CallMeBot as optional fallback.
+Push notifications via local Signal gateway (primary), ntfy.sh (fallback), Signal/CallMeBot (last resort).
+
+Signal gateway setup (see /home/bill/code/signal/README.md):
+  1. pip install -e /home/bill/code/signal into this venv
+  2. Set SIGNAL_NOTIFY_TARGET=amber in .env (alias in ~/.config/signal-notify/config.toml)
 
 ntfy setup:
   1. Install the ntfy app on your phone (Android/iOS)
@@ -21,13 +25,26 @@ NTFY_URL = "https://ntfy.sh"
 
 
 def send_notification(message: str, title: str = "Amber", priority: str = "default") -> bool:
-    """Send via ntfy (primary). Returns True on success."""
+    """Send via Signal gateway, falling back to ntfy. Returns True on success."""
+    target = os.environ.get("SIGNAL_NOTIFY_TARGET", "").strip()
+    if target and _send_signal_gateway(target, title, message, priority):
+        return True
+
     topic = os.environ.get("NTFY_TOPIC", "").strip()
     if topic:
         return _send_ntfy(topic, title, message, priority)
 
     # Fallback to Signal if ntfy not configured
     return _send_signal(message)
+
+
+def _send_signal_gateway(target: str, title: str, message: str, priority: str) -> bool:
+    try:
+        import signal_notify
+    except ImportError:
+        log.error("SIGNAL_NOTIFY_TARGET set but signal_notify not installed in this venv")
+        return False
+    return signal_notify.notify(message, title=title, to=target, priority=priority)
 
 
 def _send_ntfy(topic: str, title: str, message: str, priority: str = "default") -> bool:
@@ -71,11 +88,13 @@ def _send_signal(message: str) -> bool:
 
 
 def is_configured() -> bool:
-    return bool(os.environ.get("NTFY_TOPIC") or
+    return bool(os.environ.get("SIGNAL_NOTIFY_TARGET") or os.environ.get("NTFY_TOPIC") or
                 (os.environ.get("SIGNAL_PHONE") and os.environ.get("SIGNAL_CALLMEBOT_APIKEY")))
 
 
 def get_method() -> str:
+    if os.environ.get("SIGNAL_NOTIFY_TARGET"):
+        return "signal-gateway"
     if os.environ.get("NTFY_TOPIC"):
         return "ntfy"
     if os.environ.get("SIGNAL_PHONE") and os.environ.get("SIGNAL_CALLMEBOT_APIKEY"):
